@@ -24,7 +24,7 @@ fetch('/api/tools')
 const formatSkillsForPrompt = () => {
   if (_skillsRegistry.length === 0) return '';
   const lines = _skillsRegistry.map(s => `- ${s.trigger} — ${s.name}: ${s.description}`).join('\n');
-  return `## Available Skills\nSkills are ONLY active when the user explicitly types the trigger command. Do not run any skill flow unless activated. If a user asks you to onboard them or run a skill without typing the trigger, respond: "Type ${_skillsRegistry.map(s => s.trigger).join(' or ')} to start that."\n\n${lines}`;
+  return `## Available Skills\nThe following skills can be activated by the user typing the trigger command. When a skill is activated, follow the skill instructions precisely.\nIf a user asks about onboarding or a skill topic without typing a trigger, let them know they can type the relevant command to start.\n\n${lines}`;
 };
 
 const formatToolsForPrompt = () => {
