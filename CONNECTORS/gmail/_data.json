@@ -1,0 +1,10 @@
+{
+  "id": "gmail",
+  "name": "Gmail",
+  "description": "Send, read, and manage email via Google's Gmail API. Supports sending, replying, searching, drafts, and label management.",
+  "provider": "Google LLC",
+  "categories": ["Communication", "Email"],
+  "status": "connected",
+  "logo": "https://ssl.gstatic.com/images/branding/product/1x/gmail_2020q4_48dp.png",
+  "actions": ["send_email", "reply_to_email", "search_email", "list_emails", "get_email", "list_drafts", "list_labels", "add_labels_to_email", "remove_labels_from_email", "create_draft_reply", "get_thread"]
+}

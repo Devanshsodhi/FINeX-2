@@ -1,0 +1,57 @@
+{
+  "id": "send_email",
+  "name": "send_email",
+  "description": "Send an email via Gmail. Supports plain or HTML body, CC/BCC, custom sender name, and attachments.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "to": {
+        "anyOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" } }
+        ],
+        "description": "Recipient email address, or a list of recipient email addresses"
+      },
+      "subject": {
+        "type": "string",
+        "description": "Email subject line"
+      },
+      "body": {
+        "type": "string",
+        "description": "Email body text"
+      },
+      "body_type": {
+        "type": "string",
+        "enum": ["html", "plain"],
+        "description": "Format of the body. Defaults to 'plain'.",
+        "default": "plain"
+      },
+      "cc": {
+        "anyOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" } }
+        ],
+        "description": "CC recipient email address or list of addresses"
+      },
+      "bcc": {
+        "anyOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" } }
+        ],
+        "description": "BCC recipient email address or list of addresses"
+      },
+      "sender_name": {
+        "type": "string",
+        "description": "Sender display name"
+      }
+    },
+    "required": ["to"],
+    "additionalProperties": false
+  },
+  "server": "gmail",
+  "config": {
+    "type": "CONNECTOR",
+    "connector_id": "gmail",
+    "action_name": "send_email"
+  }
+}

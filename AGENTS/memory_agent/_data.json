@@ -1,0 +1,6 @@
+{
+  "id": "memory_agent",
+  "name": "Memory Agent",
+  "description": "Runs silently after every conversation turn. Extracts facts, decisions, and signals from the exchange and writes them to long-term memory for future sessions.",
+  "status": "active"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "onboarding-4",
+  "name": "Onboarding 04 — Behavioral Risk Profiling",
+  "description": "Four-scenario behavioral risk probe that surfaces the user's real risk tolerance (not self-reported). Detects contradictions between stated and behavioral scores and produces a risk archetype.",
+  "trigger": "/onboarding-4"
+}

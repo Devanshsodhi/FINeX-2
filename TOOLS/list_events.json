@@ -1,0 +1,30 @@
+{
+  "id": "list_events",
+  "name": "list_events",
+  "description": "List upcoming events from Google Calendar. Returns events from now (or a specified start time) in chronological order.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "maxResults": {
+        "type": "number",
+        "description": "Maximum number of events to return. Defaults to 10.",
+        "default": 10
+      },
+      "timeMin": {
+        "type": "string",
+        "description": "Start of the time range in RFC3339 format with timezone offset, e.g. '2026-04-27T00:00:00+04:00'. Defaults to now."
+      },
+      "timeMax": {
+        "type": "string",
+        "description": "End of the time range in RFC3339 format with timezone offset, e.g. '2026-04-28T00:00:00+04:00'."
+      }
+    },
+    "additionalProperties": false
+  },
+  "server": "calendar",
+  "config": {
+    "type": "CONNECTOR",
+    "connector_id": "calendar",
+    "action_name": "list_events"
+  }
+}

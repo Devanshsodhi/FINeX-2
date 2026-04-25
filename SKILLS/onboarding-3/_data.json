@@ -1,0 +1,6 @@
+{
+  "id": "onboarding-3",
+  "name": "Onboarding 03 — Assets & Liabilities",
+  "description": "Maps the user's complete asset picture (cash, investments, real estate, crypto, retirement accounts) and liabilities (loans, EMIs, credit cards). Produces a rough net worth direction.",
+  "trigger": "/onboarding-3"
+}

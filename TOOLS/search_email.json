@@ -1,0 +1,27 @@
+{
+  "id": "search_email",
+  "name": "search_email",
+  "description": "Search emails in Gmail using a query string. Supports Gmail search operators (from:, to:, subject:, has:attachment, etc.).",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Gmail search query (e.g. 'from:boss@company.com subject:Q1 report')"
+      },
+      "maxResults": {
+        "type": "number",
+        "description": "Maximum number of results to return. Defaults to 10.",
+        "default": 10
+      }
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  },
+  "server": "gmail",
+  "config": {
+    "type": "CONNECTOR",
+    "connector_id": "gmail",
+    "action_name": "search_email"
+  }
+}

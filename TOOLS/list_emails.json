@@ -1,0 +1,31 @@
+{
+  "id": "list_emails",
+  "name": "list_emails",
+  "description": "List recent emails from Gmail inbox. Returns message IDs and thread IDs.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "maxResults": {
+        "type": "number",
+        "description": "Maximum number of emails to return. Defaults to 10.",
+        "default": 10
+      },
+      "labelIds": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Filter by label IDs (e.g. ['INBOX', 'UNREAD'])"
+      },
+      "q": {
+        "type": "string",
+        "description": "Optional Gmail search query to filter results"
+      }
+    },
+    "additionalProperties": false
+  },
+  "server": "gmail",
+  "config": {
+    "type": "CONNECTOR",
+    "connector_id": "gmail",
+    "action_name": "list_emails"
+  }
+}

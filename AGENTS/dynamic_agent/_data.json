@@ -1,0 +1,7 @@
+{
+  "id": "dynamic_agent",
+  "name": "Dynamic Agent",
+  "description": "Orchestrates tools and skills on demand. Can send emails, manage calendar events, and chain multiple actions to complete complex requests.",
+  "status": "active",
+  "trigger": "/dynamic-agent"
+}

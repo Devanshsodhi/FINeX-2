@@ -1,0 +1,10 @@
+{
+  "id": "calendar",
+  "name": "Google Calendar",
+  "description": "Create, read, update, and delete events on Google Calendar. Supports attendees, timezones, and recurring events.",
+  "provider": "Google LLC",
+  "categories": ["Calendar", "Productivity"],
+  "status": "connected",
+  "logo": "https://ssl.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png",
+  "actions": ["create_event", "get_event", "update_event", "delete_event", "list_events", "get_calendar"]
+}

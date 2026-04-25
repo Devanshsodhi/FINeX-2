@@ -1,0 +1,6 @@
+{
+  "id": "onboarding-2",
+  "name": "Onboarding 02 — Financial Profile",
+  "description": "Deep financial profiling session. Collects income breakdown, occupation, dependents detail, insurance coverage, and monthly expense structure. Builds on the minimum profile from Session 1.",
+  "trigger": "/onboarding-2"
+}

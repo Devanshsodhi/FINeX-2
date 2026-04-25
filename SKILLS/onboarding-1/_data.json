@@ -1,0 +1,6 @@
+{
+  "id": "onboarding-1",
+  "name": "User Onboarding-01",
+  "description": "First-touch flow that orients a new user, captures consent, gathers a minimum profile across 7 fields, and delivers a first observation. Stores all collected data as a single onboarding_data memory block.",
+  "trigger": "/onboarding-1"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "finex",
+  "version": "1.0.0",
+  "description": "FINeX AI Financial Assistant",
+  "scripts": {
+    "install:all": "npm install && cd frontend && npm install && cd ../server && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "node server/index.js",
+    "dev:server": "cd server && node index.js",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
