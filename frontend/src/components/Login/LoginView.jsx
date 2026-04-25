@@ -59,8 +59,8 @@ const FloatingWidget = ({ icon: Icon, label, value, subValue, x, y, rotation, de
 );
 
 const LoginView = ({ onLogin }) => {
-  const [email, setEmail] = useState('devansh@gmail.com');
-  const [password, setPassword] = useState('Admin#2025');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
