@@ -85,7 +85,7 @@ const DashboardView = ({ user, onLogout }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          maxTokens: 120,
+          maxTokens: 300,
           temperature: 0.1,
           messages: [
             {
@@ -99,7 +99,9 @@ const DashboardView = ({ user, onLogout }) => {
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content?.trim();
       if (content) storeFact(userId, 'onboarding_data', content, sessionId);
-    } catch {}
+    } catch (e) {
+      console.warn('[Onboarding] Failed to extract profile:', e);
+    }
     setActiveSkill(null);
   };
 
