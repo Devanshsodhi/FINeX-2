@@ -1,9 +1,8 @@
 import { storeFact } from './memoryTools.js';
 
 const MEMORY_AGENT_CONFIG = {
-  model: 'deepseek/deepseek-chat',
-  maxTokens: 400,    // higher than global 150 — JSON output needs room
-  temperature: 0.2,  // low for consistent structured output
+  maxTokens: 400,
+  temperature: 0.2,
 };
 
 const MEMORY_AGENT_SYSTEM_PROMPT = `You are a memory extraction agent for a financial assistant called FINeX AI.
@@ -40,7 +39,6 @@ export const runMemoryAgent = async (userId, sessionId, userMessage, assistantRe
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MEMORY_AGENT_CONFIG.model,
       maxTokens: MEMORY_AGENT_CONFIG.maxTokens,
       temperature: MEMORY_AGENT_CONFIG.temperature,
       messages: [
