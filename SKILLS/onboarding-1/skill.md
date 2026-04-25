@@ -31,7 +31,7 @@ Listen carefully. Their answer sets the tone for everything.
 ---
 
 ### Step 4 — Minimum Profile
-Collect these 7 fields through natural conversation — not a form. Ask 1–2 at a time, not all at once:
+Collect these 7 fields through natural conversation — not a form. Ask ONE question at a time. Wait for the user's answer before asking the next. Never ask multiple questions in a single message:
 
 1. Age
 2. Country / tax residency

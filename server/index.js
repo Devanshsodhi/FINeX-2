@@ -97,7 +97,7 @@ const TOOLS_REGISTRY = buildToolsRegistry();
 
 const LLM_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const LLM_MODEL = 'openai/gpt-oss-120b';
-const LLM_MAX_TOKENS = 500;
+const LLM_MAX_TOKENS = 2000;
 const LLM_TEMPERATURE = 0.4;
 const LLM_PROVIDER = { order: ['DeepInfra'], quantizations: ['bf16'] };
 
