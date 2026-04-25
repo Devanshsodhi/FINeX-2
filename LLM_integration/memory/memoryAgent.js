@@ -1,7 +1,7 @@
 import { storeFact } from './memoryTools.js';
 
 const MEMORY_AGENT_CONFIG = {
-  maxTokens: 400,
+  maxTokens: 1500,
   temperature: 0.2,
 };
 

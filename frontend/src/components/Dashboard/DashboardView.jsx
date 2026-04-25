@@ -85,7 +85,7 @@ const DashboardView = ({ user, onLogout }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          maxTokens: 300,
+          maxTokens: 1500,
           temperature: 0.1,
           messages: [
             {
