@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.railway.app/config/v1.json",
+  "build": {
+    "buildCommand": "npm run install:all && npm run build"
+  },
+  "deploy": {
+    "startCommand": "npm start"
+  }
+}
