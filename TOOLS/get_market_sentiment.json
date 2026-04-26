@@ -1,0 +1,9 @@
+{
+  "id": "get_market_sentiment",
+  "name": "Get Market Sentiment",
+  "description": "Fetches live news sentiment scores for all of the user's stock and crypto holdings. Returns per-symbol sentiment scores, signals (BULLISH/BEARISH/NEUTRAL), recent headlines, and an overall market regime classification.",
+  "endpoint": "/api/market/sentiment",
+  "method": "GET",
+  "params": [],
+  "returns": "Object with 'symbols' map (score, signal, articles per holding), 'regime' (label, color, description), and 'cachedAt' timestamp."
+}

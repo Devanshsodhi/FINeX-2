@@ -1,0 +1,17 @@
+{
+  "id": "load_tools",
+  "name": "load_tools",
+  "description": "Load the full definitions (name, description, and input schema) for one or more tools. Call this before calling any tool to get the exact parameter schema. Returns the tool metadata needed to understand what arguments each tool expects.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "tool_names": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of tool names to load (e.g. [\"calculate_sip\", \"compute_income_tax\"]). Each name must match a tool in the registry."
+      }
+    },
+    "required": ["tool_names"],
+    "additionalProperties": false
+  }
+}

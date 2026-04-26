@@ -1,0 +1,15 @@
+{
+  "id": "load_skill",
+  "name": "Load Skill",
+  "description": "Activates a skill by loading its instructions into the conversation context. Use this when the user's intent matches a skill — for example, use it with skill_id 'track' when the user wants to view or discuss their investments.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "skill_id": {
+        "type": "string",
+        "description": "The ID of the skill to load (e.g. 'track' for the investment tracker)"
+      }
+    },
+    "required": ["skill_id"]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "get_rebalancing_advice",
+  "name": "get_rebalancing_advice",
+  "description": "Compares the user's current portfolio allocation against their target allocation and identifies drift. Returns current vs target allocation percentages, specific recommendations (which asset classes to increase or reduce and by how much in INR), tax implications of each rebalancing trade, and concentration risk warnings for any asset class above 40%.",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}

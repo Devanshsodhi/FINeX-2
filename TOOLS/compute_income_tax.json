@@ -1,0 +1,31 @@
+{
+  "id": "compute_income_tax",
+  "name": "compute_income_tax",
+  "description": "Computes exact income tax liability for FY 2025-26 (AY 2026-27) under new regime, old regime, or both for comparison. New regime has slabs starting at ₹4L with zero tax up to ₹12.75L effective. Old regime allows deductions (80C, 80D, NPS, HRA, home loan interest). Returns total tax, effective rate, 87A rebate if applicable, and a recommendation on which regime saves more.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "annual_income": {
+        "type": "number",
+        "description": "Gross annual income in INR before any deductions."
+      },
+      "regime": {
+        "type": "string",
+        "enum": ["new", "old", "compare"],
+        "description": "Which regime to compute. Use 'compare' to see both side by side with a recommendation. Defaults to 'compare'."
+      },
+      "deductions": {
+        "type": "object",
+        "description": "Optional deductions for old regime calculation. All values in INR.",
+        "properties": {
+          "section_80c":          { "type": "number", "description": "80C investments (ELSS, PPF, LIC, EPF, etc.) — capped at ₹1,50,000" },
+          "section_80d":          { "type": "number", "description": "Health insurance premiums — capped at ₹25,000 (₹50,000 if parents are senior citizens)" },
+          "nps_80ccd1b":          { "type": "number", "description": "NPS contribution under 80CCD(1B) — additional ₹50,000 over 80C limit" },
+          "hra":                  { "type": "number", "description": "House Rent Allowance exemption amount" },
+          "home_loan_interest":   { "type": "number", "description": "Home loan interest under Section 24(b) — capped at ₹2,00,000 for self-occupied" }
+        }
+      }
+    },
+    "required": ["annual_income"]
+  }
+}

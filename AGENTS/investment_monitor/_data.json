@@ -1,0 +1,7 @@
+{
+  "id": "investment_monitor",
+  "name": "Investment Monitor",
+  "description": "Activates the investment tracking skill to pull up your portfolio dashboard, then answers questions and flags risks using live portfolio data.",
+  "status": "active",
+"trigger": "/monitor"
+}

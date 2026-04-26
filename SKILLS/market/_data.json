@@ -1,0 +1,6 @@
+{
+  "id": "market",
+  "name": "Market Sentiment",
+  "description": "Activates the market pulse dashboard. Shows live news sentiment, bullish/bearish signals, and regime classification for all of the user's portfolio holdings.",
+  "trigger": "/market"
+}

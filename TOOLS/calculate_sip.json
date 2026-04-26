@@ -1,0 +1,27 @@
+{
+  "id": "calculate_sip",
+  "name": "calculate_sip",
+  "description": "Calculates the future value of a SIP (monthly investment) or lump sum with compound interest. Returns total corpus, wealth gained, return multiple, and pessimistic/base/optimistic scenarios at ±2% return rates.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "monthly_amount": {
+        "type": "number",
+        "description": "Monthly SIP investment amount in INR. Use 0 if this is a lump sum only calculation."
+      },
+      "years": {
+        "type": "number",
+        "description": "Investment horizon in years."
+      },
+      "expected_annual_return_pct": {
+        "type": "number",
+        "description": "Expected annual return percentage (e.g. 12 for 12%). Use 10-12 for equity MFs, 7-8 for debt, 6-7 for FDs."
+      },
+      "existing_lumpsum": {
+        "type": "number",
+        "description": "Optional one-time lump sum amount in INR invested today. Defaults to 0."
+      }
+    },
+    "required": ["monthly_amount", "years", "expected_annual_return_pct"]
+  }
+}

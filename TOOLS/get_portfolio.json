@@ -1,0 +1,9 @@
+{
+  "id": "get_portfolio",
+  "name": "Get Portfolio",
+  "description": "Fetches the user's full investment portfolio including stocks, mutual funds, fixed deposits, crypto, savings accounts, liabilities, and goals.",
+  "endpoint": "/api/portfolio",
+  "method": "GET",
+  "params": [],
+  "returns": "Full portfolio object with all asset classes and liabilities."
+}

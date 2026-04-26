@@ -1,0 +1,10 @@
+{
+  "id": "get_tax_insights",
+  "name": "get_tax_insights",
+  "description": "Analyses the user's portfolio for tax optimization opportunities. Returns: LTCG (long-term capital gains) harvesting candidates with amounts and whether they fall within the ₹1L tax-free threshold, crypto tax notes (30% flat rate), Section 80C utilization and remaining limit with ELSS recommendations, and other deduction opportunities (NPS 80CCD, HRA, home loan).",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}

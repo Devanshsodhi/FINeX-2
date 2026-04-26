@@ -1,0 +1,9 @@
+{
+  "id": "get_portfolio_summary",
+  "name": "Get Portfolio Summary",
+  "description": "Returns a computed summary of the user's portfolio: net worth, total assets, total liabilities, asset allocation percentages by class (stocks, mutual funds, fixed deposits, crypto, cash), overall P&L, and goal progress percentages.",
+  "endpoint": "/api/portfolio/summary",
+  "method": "GET",
+  "params": [],
+  "returns": "Summary object with net_worth, total_assets, total_liabilities, allocation breakdown, pnl, and goals with progress_pct."
+}

@@ -1,0 +1,6 @@
+{
+  "id": "track",
+  "name": "Investment Tracker",
+  "description": "Activates the investment dashboard. Lets users view and ask questions about their stocks, mutual funds, fixed deposits, crypto, net worth, asset allocation, and goals.",
+  "trigger": "/track"
+}

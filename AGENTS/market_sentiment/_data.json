@@ -1,0 +1,9 @@
+{
+  "id": "market_sentiment",
+  "name": "Market Sentiment Agent",
+  "description": "Monitors real-time news sentiment for your portfolio holdings. Surfaces bullish/bearish signals, regime classification, and relevant headlines.",
+  "status": "active",
+  "trigger": "market sentiment, news for my stocks, how is the market, what's the news on my holdings, market pulse",
+  "tools": ["load_skill", "get_market_sentiment"],
+  "endpoint": "/api/agents/market_sentiment/message"
+}

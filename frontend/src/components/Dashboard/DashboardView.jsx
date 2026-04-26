@@ -2,10 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Menu, X, MessageSquare, Mic, Send, Zap, Plus, Edit2,
   Languages, LayoutTemplate, ChevronRight, Brain, Database,
-  GraduationCap, Bot, Plug
+  GraduationCap, Bot, Plug, Wallet
 } from 'lucide-react';
 import axios from 'axios';
 import { ConversationHistory, streamMessage, getMemories, clearMemory, storeFact, deleteMemory } from '@llm/index.js';
+import DashboardCard from './DashboardCard';
+import InvestmentsDashboard from './InvestmentsDashboard';
+import MarketCard from './MarketCard';
+import MarketView from './MarketView';
 
 const DashboardView = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -25,7 +29,11 @@ const DashboardView = ({ user, onLogout }) => {
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
   const [memories, setMemories] = useState([]);
   const [activePanel, setActivePanel] = useState(null);
-  const [activeSkill, setActiveSkill] = useState(null); // { id, name } when a skill is running
+  const [activeSkill, setActiveSkill] = useState(null);
+  const [activeAgent, setActiveAgent] = useState(null); // { id, name } when an agent has taken over
+  const activeAgentRef = useRef(null);             // ref so closures always read current value
+  const [showInvestments, setShowInvestments] = useState(false);
+  const [showMarket, setShowMarket] = useState(false);
   const [skillsRegistry, setSkillsRegistry] = useState([]);
   const [agentsRegistry, setAgentsRegistry] = useState([]);
   const [connectorsRegistry, setConnectorsRegistry] = useState([]);
@@ -105,11 +113,54 @@ const DashboardView = ({ user, onLogout }) => {
     setActiveSkill(null);
   };
 
-  // Strips <ONBOARDING_COMPLETE> marker from display text; triggers extraction if found
-  const checkOnboardingComplete = (text) => {
-    if (!text.includes('<ONBOARDING_COMPLETE>')) return text;
-    finalizeOnboarding();
-    return text.replace('<ONBOARDING_COMPLETE>', '').trim();
+  // Processes assistant response for special markers
+  const processAssistantResponse = (text) => {
+    let cleaned = text;
+    let showDashboardCard = false;
+    let activateSkillId = null;
+
+    if (cleaned.includes('<ONBOARDING_COMPLETE>')) {
+      finalizeOnboarding();
+      cleaned = cleaned.replace('<ONBOARDING_COMPLETE>', '').trim();
+    }
+
+    if (cleaned.includes('<SHOW_DASHBOARD>')) {
+      showDashboardCard = true;
+      cleaned = cleaned.replace('<SHOW_DASHBOARD>', '').trim();
+    }
+
+    let showMarketCard = false;
+    if (cleaned.includes('<SHOW_MARKET>')) {
+      showMarketCard = true;
+      cleaned = cleaned.replace('<SHOW_MARKET>', '').trim();
+    }
+
+    const activateMatch = cleaned.match(/<ACTIVATE_SKILL>([\w-]+)<\/ACTIVATE_SKILL>/);
+    if (activateMatch) {
+      activateSkillId = activateMatch[1];
+      cleaned = cleaned.replace(/<ACTIVATE_SKILL>[\w-]+<\/ACTIVATE_SKILL>/g, '').trim();
+    }
+
+    let handoffAgentId = null;
+    const handoffMatch = cleaned.match(/<HANDOFF>([\w-]+)(?:<\/HANDOFF>)?/);
+    if (handoffMatch) {
+      handoffAgentId = handoffMatch[1];
+      cleaned = cleaned.replace(/<HANDOFF>[\w-]+<\/HANDOFF>/g, '').trim();
+    }
+
+    let agentDone = false;
+    if (cleaned.includes('<AGENT_DONE>')) {
+      agentDone = true;
+      cleaned = cleaned.replace('<AGENT_DONE>', '').trim();
+    }
+
+    let skillDone = false;
+    if (cleaned.includes('<SKILL_DONE>')) {
+      skillDone = true;
+      cleaned = cleaned.replace('<SKILL_DONE>', '').trim();
+    }
+
+    return { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, agentDone, skillDone };
   };
 
   const stripToolCallsForDisplay = (text) => {
@@ -119,7 +170,8 @@ const DashboardView = ({ user, onLogout }) => {
     return result.trim();
   };
 
-  const processToolCalls = async (text) => {
+  const processToolCalls = async (text, depth = 0) => {
+    if (depth > 6) return null;
     const toolCallRegex = /<USE_TOOL>([\s\S]*?)<\/USE_TOOL>/g;
     const matches = [...text.matchAll(toolCallRegex)];
     if (matches.length === 0) return text;
@@ -138,23 +190,87 @@ const DashboardView = ({ user, onLogout }) => {
           body: JSON.stringify(toolCall.params || {}),
         });
         const data = await res.json();
-        historyRef.current.add('user', `Tool result for ${toolCall.tool}: ${JSON.stringify(data.result ?? data.error)}`);
+
+        if (toolCall.tool === 'load_skill' && data.result?.content) {
+          const { skill_id, content } = data.result;
+          historyRef.current.injectSkill(content);
+          const registryRes = await fetch('/api/skills').catch(() => null);
+          const registry = registryRes ? await registryRes.json().catch(() => []) : [];
+          const skillMeta = registry.find(s => s.id === skill_id);
+          setActiveSkill({ id: skill_id, name: skillMeta?.name || skill_id });
+          historyRef.current.add('user', `Skill '${skill_id}' has been loaded. Follow its instructions now.`);
+        } else {
+          historyRef.current.add('user', `Tool result for ${toolCall.tool}: ${JSON.stringify(data.result ?? data.error)}`);
+        }
       } catch (e) {
         historyRef.current.add('user', `Tool call failed: ${e.message}`);
       }
     }
 
-    // Follow-up LLM call to get a natural language response from the tool results
+    // Follow-up LLM call
+    const followUpUrl  = activeAgentRef.current
+      ? `/api/agents/${activeAgentRef.current.id}/message`
+      : '/api/llm/stream';
+    const followUpBody = activeAgentRef.current
+      ? { messages: historyRef.current.messages }
+      : { messages: historyRef.current.getWithSystem() };
+
     setIsTyping(true);
     let streamStarted = false;
     let full = '';
     try {
-      const streamRes = await fetch('/api/llm/stream', {
+      const streamRes = await fetch(followUpUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: historyRef.current.getWithSystem() }),
+        body: JSON.stringify(followUpBody),
       });
       const reader = streamRes.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') continue;
+          try {
+            const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
+            if (delta) {
+              full += delta;
+              if (!streamStarted) { streamStarted = true; setIsTyping(false); }
+              const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
+              setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+            }
+          } catch { }
+        }
+      }
+      if (full) {
+        historyRef.current.add('assistant', full);
+        // If the LLM's follow-up also contains tool calls, loop
+        if (/<USE_TOOL>/.test(full)) {
+          return processToolCalls(full, depth + 1);
+        }
+      }
+    } catch (e) {
+      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: `Error: ${e.message}` }]);
+    } finally {
+      setIsTyping(false);
+    }
+    return null;
+  };
+
+  // Calls a runnable agent endpoint and streams its response into chat as a new assistant message
+  const runAgent = async (agentId) => {
+    setIsTyping(true);
+    let streamStarted = false;
+    let full = '';
+    try {
+      const res = await fetch(`/api/agents/${agentId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error(`Agent failed (${res.status})`);
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
@@ -170,19 +286,114 @@ const DashboardView = ({ user, onLogout }) => {
               if (!streamStarted) {
                 streamStarted = true;
                 setIsTyping(false);
+                setChatMessages(prev => [...prev, { role: 'assistant', content: full }]);
+              } else {
+                setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: full }]);
               }
-              setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: full }]);
             }
           } catch {}
         }
       }
       if (full) historyRef.current.add('assistant', full);
-    } catch (e) {
-      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: `Error: ${e.message}` }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Agent error: ${err.message}` }]);
     } finally {
       setIsTyping(false);
     }
-    return null;
+  };
+
+  // Kicks off the agent's first turn — agent picks up from current history
+  const startAgent = async (agentId) => {
+    setIsTyping(true);
+    let streamStarted = false;
+    let full = '';
+    try {
+      const res = await fetch(`/api/agents/${agentId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: historyRef.current.messages }),
+      });
+      if (!res.ok) throw new Error(`Agent failed (${res.status})`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') continue;
+          try {
+            const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
+            if (delta) {
+              full += delta;
+              const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
+              if (!streamStarted) {
+                streamStarted = true;
+                setIsTyping(false);
+                setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+              } else {
+                setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+              }
+            }
+          } catch {}
+        }
+      }
+      if (full) {
+        historyRef.current.add('assistant', full);
+        const { cleaned, showDashboardCard, showMarketCard, agentDone, skillDone } = processAssistantResponse(full);
+        const toolResult = await processToolCalls(cleaned);
+        if (toolResult !== null) {
+          const final = processAssistantResponse(toolResult);
+          setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
+        }
+        if (agentDone || skillDone) {
+          activeAgentRef.current = null;
+          setActiveAgent(null);
+          setActiveSkill(null);
+          historyRef.current.clearSkill();
+        }
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  // Streams the opening message of an already-activated skill and handles tool calls / markers
+  const runSkillFlow = async () => {
+    let streamStarted = false;
+    try {
+      await streamMessage('Begin the skill now.', historyRef.current, userId, sessionId, (_chunk, full) => {
+        pendingFullRef.current = full;
+        const display = stripToolCallsForDisplay(full);
+        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(display);
+        if (!streamStarted) {
+          streamStarted = true;
+          setIsTyping(false);
+          setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+        } else if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            const currentDisplay = stripToolCallsForDisplay(pendingFullRef.current);
+            const processed = processAssistantResponse(currentDisplay);
+            setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: processed.cleaned, showDashboardCard: processed.showDashboardCard, showMarketCard: processed.showMarketCard }]);
+            rafRef.current = null;
+          });
+        }
+      }, { skipMemoryAgent: true });
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(pendingFullRef.current);
+      const skillToolResult = await processToolCalls(cleaned);
+      if (skillToolResult !== null) {
+        const final = processAssistantResponse(skillToolResult);
+        setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleSend = async () => {
@@ -196,34 +407,7 @@ const DashboardView = ({ user, onLogout }) => {
       setIsTyping(true);
       const ok = await activateSkill(skillId);
       if (ok) {
-        let streamStarted = false;
-        try {
-          await streamMessage('Begin the skill now.', historyRef.current, userId, sessionId, (_chunk, full) => {
-            pendingFullRef.current = full;
-            const display = stripToolCallsForDisplay(full);
-            if (!streamStarted) {
-              streamStarted = true;
-              setIsTyping(false);
-              setChatMessages(prev => [...prev, { role: 'assistant', content: display }]);
-            } else if (!rafRef.current) {
-              rafRef.current = requestAnimationFrame(() => {
-                setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: stripToolCallsForDisplay(pendingFullRef.current) }]);
-                rafRef.current = null;
-              });
-            }
-          }, { skipMemoryAgent: true });
-          // Flush any pending rAF and apply final content
-          if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-          let cleaned = checkOnboardingComplete(pendingFullRef.current);
-          const skillToolResult = await processToolCalls(cleaned);
-          if (skillToolResult !== null) {
-            setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: skillToolResult }]);
-          }
-        } catch (err) {
-          setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
-        } finally {
-          setIsTyping(false);
-        }
+        await runSkillFlow();
       } else {
         setIsTyping(false);
       }
@@ -232,29 +416,128 @@ const DashboardView = ({ user, onLogout }) => {
 
     setChatMessages(prev => [...prev, { role: 'user', content: text }]);
     setIsTyping(true);
+
+    // --- Agent is active: route through agent endpoint ---
+    if (activeAgentRef.current) {
+      historyRef.current.add('user', text);
+      let full = '';
+      let streamStarted = false;
+      try {
+        const res = await fetch(`/api/agents/${activeAgentRef.current.id}/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: historyRef.current.messages }),
+        });
+        if (!res.ok) throw new Error(`Agent failed (${res.status})`);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') continue;
+            try {
+              const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
+              if (delta) {
+                full += delta;
+                const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
+                if (!streamStarted) { streamStarted = true; setIsTyping(false); setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]); }
+                else setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+              }
+            } catch {}
+          }
+        }
+        if (full) {
+          historyRef.current.add('assistant', full);
+          const { cleaned, showDashboardCard, showMarketCard, agentDone, skillDone, handoffAgentId } = processAssistantResponse(full);
+          if (handoffAgentId) {
+            const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
+            const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
+            activeAgentRef.current = agentObj;
+            setActiveAgent(agentObj);
+            historyRef.current.clearSkill();
+            setActiveSkill(null);
+            await startAgent(handoffAgentId);
+          } else {
+            const toolResult = await processToolCalls(cleaned);
+            if (toolResult !== null) {
+              const final = processAssistantResponse(toolResult);
+              setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
+            }
+            if (agentDone || skillDone) {
+              activeAgentRef.current = null;
+              setActiveAgent(null);
+              setActiveSkill(null);
+              historyRef.current.clearSkill();
+            }
+          }
+        }
+      } catch (err) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // --- Main LLM path ---
     let streamStarted = false;
     const skillActive = !!activeSkill;
     try {
       await streamMessage(text, historyRef.current, userId, sessionId, (_chunk, full) => {
         pendingFullRef.current = full;
         const display = stripToolCallsForDisplay(full);
+        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(display);
         if (!streamStarted) {
           streamStarted = true;
           setIsTyping(false);
-          setChatMessages(prev => [...prev, { role: 'assistant', content: display }]);
+          setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
         } else if (!rafRef.current) {
           rafRef.current = requestAnimationFrame(() => {
-            setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: stripToolCallsForDisplay(pendingFullRef.current) }]);
+            const currentDisplay = stripToolCallsForDisplay(pendingFullRef.current);
+            const processed = processAssistantResponse(currentDisplay);
+            setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: processed.cleaned, showDashboardCard: processed.showDashboardCard, showMarketCard: processed.showMarketCard }]);
             rafRef.current = null;
           });
         }
       }, { skipMemoryAgent: skillActive });
-      // Flush any pending rAF with final content
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-      let finalText = skillActive ? checkOnboardingComplete(pendingFullRef.current) : pendingFullRef.current;
-      const toolResult = await processToolCalls(finalText);
-      if (toolResult !== null) {
-        setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: toolResult }]);
+      const { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, skillDone } = processAssistantResponse(pendingFullRef.current);
+      if (skillDone) { setActiveSkill(null); historyRef.current.clearSkill(); }
+      let finalText = cleaned;
+
+      // Handoff takes priority — skip tool calls so agent handles everything
+      if (handoffAgentId) {
+        const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
+        const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
+        activeAgentRef.current = agentObj;
+        setActiveAgent(agentObj);
+        await startAgent(handoffAgentId);
+      } else {
+        finalText = await processToolCalls(finalText);
+        if (finalText !== null) {
+          const final = processAssistantResponse(finalText);
+          setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
+          // Auto-activate skill
+          const skillToActivate = activateSkillId || final.activateSkillId;
+          if (skillToActivate) {
+            setIsTyping(true);
+            const ok = await activateSkill(skillToActivate);
+            if (ok) await runSkillFlow();
+            else setIsTyping(false);
+          }
+          // Agent handoff from tool follow-up
+          const agentToHandoff = final.handoffAgentId;
+          if (agentToHandoff) {
+            const agentMeta = agentsRegistry.find(a => a.id === agentToHandoff);
+            const agentObj = { id: agentToHandoff, name: agentMeta?.name || agentToHandoff };
+            activeAgentRef.current = agentObj;
+            setActiveAgent(agentObj);
+            await startAgent(agentToHandoff);
+          }
+        }
       }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
@@ -291,6 +574,20 @@ const DashboardView = ({ user, onLogout }) => {
 
   return (
     <div className="flex h-screen bg-dark text-white overflow-hidden font-sans">
+      {/* Investments overlay */}
+      {showInvestments && (
+        <div className="fixed inset-0 z-[100] bg-dark overflow-auto">
+          <InvestmentsDashboard user={user} onBack={() => setShowInvestments(false)} />
+        </div>
+      )}
+
+      {/* Market Pulse overlay */}
+      {showMarket && (
+        <div className="fixed inset-0 z-[100] bg-dark overflow-auto">
+          <MarketView onBack={() => setShowMarket(false)} />
+        </div>
+      )}
+
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-50 bg-charcoal transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0 w-72 border-r border-white/5' : '-translate-x-full w-72 md:w-0 md:translate-x-0'} md:relative overflow-visible`}
@@ -396,11 +693,11 @@ const DashboardView = ({ user, onLogout }) => {
               <div
                 key={idx}
                 onClick={() => {
-            setActivePanel(card.id);
-            if (card.id === 'skills') fetch('/api/skills').then(r => r.json()).then(setSkillsRegistry).catch(() => {});
-            if (card.id === 'agents') fetch('/api/agents').then(r => r.json()).then(setAgentsRegistry).catch(() => {});
-            if (card.id === 'connectors') fetch('/api/connectors').then(r => r.json()).then(setConnectorsRegistry).catch(() => {});
-          }}
+                  setActivePanel(card.id);
+                  if (card.id === 'skills') fetch('/api/skills').then(r => r.json()).then(setSkillsRegistry).catch(() => { });
+                  if (card.id === 'agents') fetch('/api/agents').then(r => r.json()).then(setAgentsRegistry).catch(() => { });
+                  if (card.id === 'connectors') fetch('/api/connectors').then(r => r.json()).then(setConnectorsRegistry).catch(() => { });
+                }}
                 className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 hover:border-brand-orange/30 transition-all duration-300 group cursor-pointer active:scale-[0.98]"
               >
                 <div className="p-2 rounded-xl bg-brand-orange/10 w-fit mb-3 group-hover:bg-brand-orange/20 transition-all duration-300 ring-1 ring-brand-orange/20">
@@ -422,14 +719,27 @@ const DashboardView = ({ user, onLogout }) => {
                       <Brain size={16} className="text-brand-orange" />
                     </div>
                   )}
-                  <div
-                    className={`max-w-[75%] px-4 py-3 rounded-2xl text-[14px] font-medium leading-relaxed ${
-                      msg.role === 'user'
+                  <div className={`flex flex-col gap-3 ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                    <div
+                      className={`px-4 py-3 rounded-2xl text-[14px] font-medium leading-relaxed ${msg.role === 'user'
                         ? 'bg-gradient-to-br from-brand-orange to-brand-red text-white rounded-br-sm shadow-lg shadow-brand-orange/20'
                         : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-sm'
-                    }`}
-                  >
-                    {msg.content}
+                        }`}
+                      dangerouslySetInnerHTML={{ __html: msg.content
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br/>') }}
+                    />
+                    {msg.showDashboardCard && (
+                      <div className="mt-4">
+                        <DashboardCard onOpen={() => setShowInvestments(true)} />
+                      </div>
+                    )}
+                    {msg.showMarketCard && (
+                      <div className="mt-4">
+                        <MarketCard onOpen={() => setShowMarket(true)} />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -454,7 +764,7 @@ const DashboardView = ({ user, onLogout }) => {
           )}
 
           {/* Spacer for floating input */}
-          <div ref={chatBottomRef} className="h-56 w-full shrink-0" />
+          <div ref={chatBottomRef} className="h-64 w-full shrink-0" />
         </div>
 
         {/* Bottom fade */}
@@ -462,13 +772,31 @@ const DashboardView = ({ user, onLogout }) => {
 
         {/* Floating Chat Input */}
         <div className={`fixed bottom-10 right-0 flex flex-col items-center gap-2 px-6 z-40 transition-all duration-300 ease-in-out ${sidebarOpen ? 'left-0 md:left-72' : 'left-0'}`}>
-          {activeSkill && (
+          {activeAgent && (
+            <div className="w-full max-w-3xl flex items-center justify-between px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
+                Agent active: {activeAgent.name}
+              </span>
+              <button
+                onClick={() => {
+                  activeAgentRef.current = null;
+                  setActiveAgent(null);
+                  historyRef.current.clearSkill();
+                  setActiveSkill(null);
+                }}
+                className="text-blue-400/60 hover:text-blue-400 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {activeSkill && !activeAgent && (
             <div className="w-full max-w-3xl flex items-center justify-between px-4 py-1.5 bg-brand-orange/10 border border-brand-orange/20 rounded-xl">
               <span className="text-[11px] font-bold text-brand-orange uppercase tracking-wider">
                 Skill active: {activeSkill.name}
               </span>
               <button
-                onClick={() => setActiveSkill(null)}
+                onClick={() => { historyRef.current.clearSkill(); setActiveSkill(null); }}
                 className="text-brand-orange/60 hover:text-brand-orange transition-colors"
               >
                 <X size={14} />
@@ -477,7 +805,13 @@ const DashboardView = ({ user, onLogout }) => {
           )}
           <div className="w-full max-w-3xl bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[24px] p-2 flex items-center shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
             <div className="p-3">
-              <Brain size={20} className="text-gray-400 opacity-60" />
+              <Brain
+                size={20}
+                className={isTyping
+                  ? "text-brand-orange drop-shadow-[0_0_8px_rgba(255,107,53,0.8)] animate-pulse"
+                  : "text-gray-400 opacity-60"
+                }
+              />
             </div>
             <input
               type="text"

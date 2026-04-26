@@ -19,6 +19,10 @@ export class ConversationHistory {
     this.messages.push({ role: 'system', content: `[SKILL ACTIVATED]\n\n${skillContent}` });
   }
 
+  clearSkill() {
+    this.messages = this.messages.filter(m => !m.content?.startsWith('[SKILL ACTIVATED]'));
+  }
+
   getWithSystem() {
     // Rebuilt each call so newly stored memories are always included
     return [

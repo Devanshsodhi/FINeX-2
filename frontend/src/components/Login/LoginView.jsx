@@ -218,13 +218,16 @@ const LoginView = ({ onLogin }) => {
             <p className="text-gray-400 font-medium">Welcome back! Please enter your details.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-8" autoComplete="off">
             <div className="space-y-2">
-              <label className="text-[13px] font-semibold text-gray-500 tracking-[0.5px] uppercase">
+              <label htmlFor="email" className="text-[13px] font-semibold text-gray-500 tracking-[0.5px] uppercase">
                 Email or Username
               </label>
               <input
+                id="email"
+                name="email"
                 type="text"
+                autoComplete="username"
                 className="input-field h-[54px]"
                 placeholder="Enter your email"
                 value={email}
@@ -235,12 +238,15 @@ const LoginView = ({ onLogin }) => {
 
             <div className="space-y-2 relative">
               <div className="flex justify-between items-center pr-1">
-                <label className="text-[13px] font-semibold text-gray-500 tracking-[0.5px] uppercase">Password</label>
+                <label htmlFor="password" className="text-[13px] font-semibold text-gray-500 tracking-[0.5px] uppercase">Password</label>
                 <a href="#" className="text-[13.5px] font-bold text-brand-orange hover:text-brand-red transition-colors">Forgot password?</a>
               </div>
               <div className="relative">
                 <input
+                  id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   className="input-field h-[54px] pr-14"
                   placeholder="Enter your password"
                   value={password}
