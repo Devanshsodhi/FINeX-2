@@ -46,12 +46,14 @@ const formatToolsForPrompt = () => {
     .map(t => `- ${t.id}: ${t.description}`)
     .join('\n');
   return `## Tools
-You have access to real-world tools. Call them using this exact format on its own line:
+You have access to real-world tools. You MUST call them using EXACTLY this format — no other format will work:
 <USE_TOOL>{"tool": "tool_name", "params": {...}}</USE_TOOL>
 
-The system executes the tool and returns the result — respond naturally based on it. Never fabricate a result.
+CRITICAL: The <USE_TOOL> and </USE_TOOL> tags are required. Never output raw JSON, never use any other format. The system only executes tool calls wrapped in these tags.
 
-**Before calling any tool (except load_tools and load_skill), call load_tools first to get the exact parameter schema:**
+After the tool executes, the result is returned to you — respond naturally based on it. Never fabricate a result.
+
+Before calling any tool (except load_tools and load_skill), call load_tools first to get the exact parameter schema:
 <USE_TOOL>{"tool": "load_tools", "params": {"tool_names": ["tool_name"]}}</USE_TOOL>
 
 Available tools:

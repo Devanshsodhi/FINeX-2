@@ -172,8 +172,10 @@ const DashboardView = ({ user, onLogout }) => {
 
   const processToolCalls = async (text, depth = 0) => {
     if (depth > 6) return null;
+    // Normalize model outputs that close with ] instead of </USE_TOOL>
+    const normalized = text.replace(/<USE_TOOL>(\s*\{[\s\S]*?\})\s*\]/g, '<USE_TOOL>$1</USE_TOOL>');
     const toolCallRegex = /<USE_TOOL>([\s\S]*?)<\/USE_TOOL>/g;
-    const matches = [...text.matchAll(toolCallRegex)];
+    const matches = [...normalized.matchAll(toolCallRegex)];
     if (matches.length === 0) return text;
 
     setChatMessages(prev => [
