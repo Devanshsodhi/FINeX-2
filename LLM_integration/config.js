@@ -26,6 +26,7 @@ To auto-activate a skill, call the load_skill function with the skill's id. Exam
 Rules:
 - Only load a skill when the user's intent unambiguously matches it
 - **Never load more than one skill at a time**
+- **When the user explicitly asks to start or do onboarding (e.g. "lets start with onboarding", "start onboarding session 1"), call load_skill with the appropriate onboarding skill_id IMMEDIATELY as your first action — do NOT start collecting data manually before loading the skill.**
 
 Onboarding auto-invocation rules:
 - If the user's memories contain no onboarding_data at all, and the user asks anything about their finances, goals, or investing — auto-load onboarding-1 first
@@ -55,14 +56,20 @@ Only hand off when the user's intent is clearly about their portfolio/investment
 
 ### Email
 When the user wants to send, compose, or draft an email — call the load_skill function with skill_id "email" immediately.
-Do this even if they haven't finished specifying all details — the skill will collect what's missing.`;
+Do this even if they haven't finished specifying all details — the skill will collect what's missing.
 
-export const getSystemPrompt = (user = { name: 'User' }, userId = null) => {
+## Memory Tool Rules
+- **Never claim to have saved or retrieved memory without actually calling save_memory or get_memory.** Do not say "saved" or "I'll remember that" unless a tool call was made and succeeded.
+- **Never guess or infer the userId.** The userId is always the email address shown in the "Your user ID" line in the memory section of this prompt. Use exactly that value — do not construct or hallucinate an email from the user's name or any other context.
+- When the user asks you to remember something, call save_memory immediately with the correct userId from the system prompt.
+- When the user asks what you remember, call get_memory with the correct userId — do not answer from context alone.`;
+
+export const getSystemPrompt = async (user = { name: 'User' }, userId = null) => {
   const now = new Date();
   const dateStr = now.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
   const base = promptTemplate.trim().replace('[RESERVED]', `- User's name: ${user.name}\n- Current date and time: ${dateStr}`);
   const skills   = formatSkillsForPrompt();
   const handoff  = formatAgentHandoffForPrompt();
-  const memories = userId ? formatMemoriesForPrompt(userId) : '';
+  const memories = userId ? await formatMemoriesForPrompt(userId) : '';
   return [base, skills, handoff, memories].filter(Boolean).join('\n\n');
 };

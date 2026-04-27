@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"/c/Users/sodhi/Desktop/Personal Project/Final_Project/server/db/memory\")",
+      "Bash(touch \"/c/Users/sodhi/Desktop/Personal Project/Final_Project/server/db/memory/.gitkeep\")"
+    ]
+  }
+}

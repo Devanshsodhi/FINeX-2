@@ -70,7 +70,13 @@ For each: rough numbers are fine. Focus on outstanding balance and monthly EMI b
 ---
 
 ### Step 6 — Net Worth Observation
-Based on what you've collected, make one qualitative observation about their net worth picture — asset-heavy vs liability-heavy, liquidity profile, or any obvious gap. One sentence only. Do not give investment advice.
+First, call save_memory with:
+- userId: [the user's email from the system prompt context — look for "Your user ID"]
+- type: "user_fact"
+- content: "Onboarding session 3 complete"
+- sessionId: "onboarding-3"
+
+Then make one qualitative observation about their net worth picture — asset-heavy vs liability-heavy, liquidity profile, or any obvious gap. One sentence only. Do not give investment advice.
 
 Then end with:
 

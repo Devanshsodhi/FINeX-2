@@ -3,7 +3,7 @@ import { runMemoryAgent } from './memory/index.js';
 
 export async function sendMessage(userMessage, history, userId, sessionId) {
   history.add('user', userMessage);
-  const reply = await callLLM(history.getWithSystem());
+  const reply = await callLLM(await history.getWithSystem());
   history.add('assistant', reply);
   runMemoryAgent(userId, sessionId, userMessage, reply).catch(() => {});
   return reply;
@@ -11,7 +11,7 @@ export async function sendMessage(userMessage, history, userId, sessionId) {
 
 export async function streamMessage(userMessage, history, userId, sessionId, onChunk, options = {}) {
   history.add('user', userMessage);
-  const reply = await streamLLM(history.getWithSystem(), onChunk);
+  const reply = await streamLLM(await history.getWithSystem(), onChunk);
   history.add('assistant', reply);
   if (!options.skipMemoryAgent) {
     runMemoryAgent(userId, sessionId, userMessage, reply).catch(() => {});

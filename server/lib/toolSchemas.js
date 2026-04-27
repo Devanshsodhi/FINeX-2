@@ -53,9 +53,9 @@ export const ALL_TOOL_SCHEMAS = loadAllSchemas();
 export const AGENT_TOOLS = {
   investment_monitor: ['get_portfolio', 'get_portfolio_summary', 'get_rebalancing_advice',
                        'get_tax_insights', 'compute_income_tax', 'calculate_sip',
-                       'calculate_goal_probability', 'load_skill'],
-  market_sentiment:  ['get_market_sentiment', 'load_skill'],
-  dynamic_agent:     ['send_email', 'search_email', 'list_emails', 'create_event', 'list_events', 'load_skill'],
+                       'calculate_goal_probability', 'get_memory', 'load_skill'],
+  market_sentiment:  ['get_market_sentiment', 'get_memory', 'load_skill'],
+  dynamic_agent:     ['send_email', 'search_email', 'list_emails', 'create_event', 'list_events', 'get_memory', 'save_memory', 'load_skill'],
 };
 
 export const getAgentTools = (agentId) => {

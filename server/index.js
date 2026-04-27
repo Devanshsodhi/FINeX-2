@@ -8,6 +8,7 @@ import { getMarketData } from './market/index.js';
 import { openai, LLM_MODEL, LLM_MAX_TOKENS, LLM_TEMPERATURE, LLM_PROVIDER } from './lib/llmClient.js';
 import { ALL_TOOL_SCHEMAS, getAgentTools } from './lib/toolSchemas.js';
 import { runAgentLoop } from './lib/agentLoop.js';
+import { saveMemory, getMemories, deleteMemory, clearMemory, loadMemory } from './lib/memoryStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -199,12 +200,29 @@ app.post('/api/llm/chat', async (req, res) => {
   }
 });
 
+// Builds a memory context string for injecting into agent system prompts
+const buildMemoryContext = async (userId) => {
+  try {
+    const all = await loadMemory(userId);
+    if (all.length === 0) return '';
+    const sessionFacts = all.filter(e =>
+      e.type === 'user_fact' && /onboarding session \d+ complete/i.test(e.content)
+    );
+    const recent = all.slice(-20);
+    const recentIds = new Set(recent.map(e => e.id));
+    const pinned = sessionFacts.filter(e => !recentIds.has(e.id));
+    const lines = [...pinned, ...recent].map(e => `- ${e.content}`).join('\n');
+    return `## What I remember about the user:\n${lines}\n\n## User ID (for memory tools): ${userId}`;
+  } catch { return ''; }
+};
+
 // --- Investment Monitor Agent ---
 app.post('/api/agents/investment_monitor/message', async (req, res) => {
-  const { messages } = req.body;
+  const { messages, userId } = req.body;
   setSseHeaders(res);
   const systemPrompt = loadAgentPrompt('investment_monitor');
-  const fullMessages = [{ role: 'system', content: systemPrompt }, ...messages];
+  const memoryContext = userId ? await buildMemoryContext(userId) : '';
+  const fullMessages = [{ role: 'system', content: [systemPrompt, memoryContext].filter(Boolean).join('\n\n') }, ...messages];
   try {
     await runAgentLoop(fullMessages, getAgentTools('investment_monitor'), res);
   } catch (err) {
@@ -250,12 +268,38 @@ app.post('/api/agents/investment_monitor/run', async (req, res) => {
   }
 });
 
+// --- Memory endpoints ---
+app.get('/api/memory/:userId', async (req, res) => {
+  try { res.json(await getMemories(req.params.userId)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/memory/:userId', async (req, res) => {
+  try {
+    const { type, content, sessionId } = req.body;
+    const entry = { id: crypto.randomUUID(), type, content, sessionId, createdAt: new Date().toISOString() };
+    await saveMemory(req.params.userId, entry);
+    res.json({ success: true, id: entry.id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/memory/:userId/:id', async (req, res) => {
+  try { await deleteMemory(req.params.userId, req.params.id); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/memory/:userId', async (req, res) => {
+  try { await clearMemory(req.params.userId); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- Market Sentiment Agent ---
 app.post('/api/agents/market_sentiment/message', async (req, res) => {
-  const { messages } = req.body;
+  const { messages, userId } = req.body;
   setSseHeaders(res);
   const systemPrompt = loadAgentPrompt('market_sentiment');
-  const fullMessages = [{ role: 'system', content: systemPrompt }, ...messages];
+  const memoryContext = userId ? await buildMemoryContext(userId) : '';
+  const fullMessages = [{ role: 'system', content: [systemPrompt, memoryContext].filter(Boolean).join('\n\n') }, ...messages];
   try {
     await runAgentLoop(fullMessages, getAgentTools('market_sentiment'), res);
   } catch (err) {

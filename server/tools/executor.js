@@ -4,6 +4,7 @@ import * as portfolio from './portfolio.js';
 import * as skillLoader from './skillLoader.js';
 import * as financialCalc from './financialCalc.js';
 import { getMarketData } from '../market/index.js';
+import { saveMemory, loadMemory } from '../lib/memoryStore.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -34,8 +35,18 @@ const get_market_sentiment = async () => {
   return getMarketData(holdings);
 };
 
+const get_memory = async ({ userId }) => loadMemory(userId);
+
+const save_memory = async ({ userId, type, content, sessionId }) => {
+  const id = crypto.randomUUID();
+  await saveMemory(userId, { id, type, content, sessionId, createdAt: new Date().toISOString() });
+  return { success: true, id };
+};
+
 const TOOL_MAP = {
   load_tools,
+  get_memory,
+  save_memory,
   send_email: gmail.send_email,
   list_emails: gmail.list_emails,
   search_email: gmail.search_email,

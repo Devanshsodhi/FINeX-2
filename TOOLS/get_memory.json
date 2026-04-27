@@ -1,0 +1,15 @@
+{
+  "id": "get_memory",
+  "name": "get_memory",
+  "description": "Retrieves all stored memories for a user. Returns an array of memory entries (id, type, content, sessionId, createdAt). Use this to check onboarding status, recall user facts, or inspect what is already known about the user before responding.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "userId": {
+        "type": "string",
+        "description": "The user's email address, used as their unique identifier."
+      }
+    },
+    "required": ["userId"]
+  }
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "042c5f07-72b7-41bb-8a04-a1d87daadf6a",
+    "type": "user_fact",
+    "content": "User's name is Devansh",
+    "sessionId": "152717ce-8e06-4db3-85a5-65c5dafb986c",
+    "createdAt": "2026-04-27T15:47:35.677Z"
+  },
+  {
+    "id": "3ae369e6-e12c-4db0-9ba6-560d87a5f2cc",
+    "type": "user_fact",
+    "content": "User is 21 years old",
+    "sessionId": "152717ce-8e06-4db3-85a5-65c5dafb986c",
+    "createdAt": "2026-04-27T15:47:35.688Z"
+  },
+  {
+    "id": "2c872f83-b895-454c-8784-a95d28dfe8c2",
+    "type": "user_fact",
+    "content": "User lives in Dubai, United Arab Emirates",
+    "sessionId": "152717ce-8e06-4db3-85a5-65c5dafb986c",
+    "createdAt": "2026-04-27T15:47:35.703Z"
+  },
+  {
+    "id": "f3049fde-b25a-4f7f-b6e6-c27ddb7a1170",
+    "type": "user_fact",
+    "content": "Email: devansh@gmail.com",
+    "sessionId": "session_1",
+    "createdAt": "2026-04-27T15:47:58.087Z"
+  },
+  {
+    "id": "0ad7aaac-0b4a-477b-81ba-f16eed171d45",
+    "type": "user_fact",
+    "content": "User wants their email address stored in memory",
+    "sessionId": "152717ce-8e06-4db3-85a5-65c5dafb986c",
+    "createdAt": "2026-04-27T15:48:04.931Z"
+  },
+  {
+    "id": "1c690daa-70ff-4770-a74f-7048745d4ec4",
+    "type": "user_fact",
+    "content": "email: devansh@aiatcore.com",
+    "sessionId": "session_1",
+    "createdAt": "2026-04-27T15:48:34.704Z"
+  },
+  {
+    "id": "3a62b9cb-f794-4a5f-847a-be09160732a0",
+    "type": "user_fact",
+    "content": "User's email address is devansh@aiatcore.com",
+    "sessionId": "152717ce-8e06-4db3-85a5-65c5dafb986c",
+    "createdAt": "2026-04-27T15:48:45.203Z"
+  }
+]

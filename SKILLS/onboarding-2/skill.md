@@ -65,7 +65,13 @@ Collect:
 ---
 
 ### Step 6 — One Observation + Handoff
-Give one sentence of observation based on what you've learned this session. Then end with:
+First, call save_memory with:
+- userId: [the user's email from the system prompt context — look for "Your user ID"]
+- type: "user_fact"
+- content: "Onboarding session 2 complete"
+- sessionId: "onboarding-2"
+
+Then give one sentence of observation based on what you've learned this session. Then end with:
 
 > "Good — that gives me a solid income and expense picture. Let me know if you'd like to continue to session 3 — we'd map everything you own and owe."
 

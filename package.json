@@ -5,8 +5,8 @@
   "scripts": {
     "install:all": "npm install && cd frontend && npm install && cd ../server && npm install",
     "build": "cd frontend && npm install && npm run build && cd ../server && npm install",
-    "start": "node server/index.js",
-    "dev:server": "cd server && node index.js",
+    "start": "node --env-file=.env server/index.js",
+    "dev:server": "cd server && node --env-file=../.env index.js",
     "dev:frontend": "cd frontend && npm run dev"
   },
   "engines": {

@@ -1,0 +1,27 @@
+{
+  "id": "save_memory",
+  "name": "save_memory",
+  "description": "Saves a single memory entry for a user to persistent server storage. Use this to record user facts, onboarding completion, decisions, or any information worth remembering across sessions.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "userId": {
+        "type": "string",
+        "description": "The user's email address."
+      },
+      "type": {
+        "type": "string",
+        "description": "Memory category. One of: user_fact, onboarding_data, emotional_signal, decision, contradiction, follow_up."
+      },
+      "content": {
+        "type": "string",
+        "description": "The memory text to store."
+      },
+      "sessionId": {
+        "type": "string",
+        "description": "Session ID from the current conversation."
+      }
+    },
+    "required": ["userId", "type", "content", "sessionId"]
+  }
+}

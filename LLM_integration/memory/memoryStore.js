@@ -1,69 +1,35 @@
-const KEY = (userId) => `finex_memory_${userId}`;
-const MAX_ENTRIES = 100;
+const API = (userId) => `/api/memory/${encodeURIComponent(userId)}`;
 
-// Drop oldest entries of these types first — never drop contradiction or follow_up
-// never evict: contradiction, follow_up, onboarding_data
-const EVICTION_ORDER = ['user_fact', 'emotional_signal', 'decision'];
+export const saveMemory = async (userId, entry) => {
+  await fetch(API(userId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: entry.type, content: entry.content, sessionId: entry.sessionId }),
+  });
+};
 
-const load = (userId) => {
+export const getMemories = async (userId) => {
   try {
-    return JSON.parse(localStorage.getItem(KEY(userId)) || '[]');
-  } catch {
-    return [];
-  }
+    const res = await fetch(API(userId));
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
 };
 
-const persist = (userId, entries) => {
-  localStorage.setItem(KEY(userId), JSON.stringify(entries));
+export const getMemoriesByType = async (userId, type) => {
+  const all = await getMemories(userId);
+  return all.filter(e => e.type === type);
 };
 
-export const saveMemory = (userId, entry) => {
-  let entries = load(userId);
-
-  // onboarding_data: upsert — one canonical record, always replace
-  if (entry.type === 'onboarding_data') {
-    const idx = entries.findIndex(e => e.type === 'onboarding_data');
-    if (idx !== -1) {
-      entries[idx] = { ...entries[idx], content: entry.content, updatedAt: entry.createdAt };
-    } else {
-      entries.push(entry);
-    }
-    persist(userId, entries);
-    return;
-  }
-
-  // user_fact: skip exact duplicates (case-insensitive)
-  const norm = (s) => s?.toLowerCase().trim();
-  if (entry.type === 'user_fact') {
-    if (entries.some(e => e.type === 'user_fact' && norm(e.content) === norm(entry.content))) return;
-  }
-
-  entries.push(entry);
-
-  if (entries.length > MAX_ENTRIES) {
-    for (const type of EVICTION_ORDER) {
-      const idx = entries.findIndex(e => e.type === type);
-      if (idx !== -1) { entries.splice(idx, 1); break; }
-    }
-  }
-
-  persist(userId, entries);
+export const getRecentMemories = async (userId, n = 10) => {
+  const all = await getMemories(userId);
+  return all.slice(-n);
 };
 
-export const getMemories = (userId) => load(userId);
-
-export const getMemoriesByType = (userId, type) =>
-  load(userId).filter(e => e.type === type);
-
-export const deleteMemory = (userId, id) => {
-  persist(userId, load(userId).filter(e => e.id !== id));
+export const deleteMemory = async (userId, id) => {
+  await fetch(`${API(userId)}/${id}`, { method: 'DELETE' });
 };
 
-export const clearMemory = (userId) => {
-  localStorage.removeItem(KEY(userId));
-};
-
-export const getRecentMemories = (userId, n = 10) => {
-  const entries = load(userId);
-  return entries.slice(-n);
+export const clearMemory = async (userId) => {
+  await fetch(API(userId), { method: 'DELETE' });
 };

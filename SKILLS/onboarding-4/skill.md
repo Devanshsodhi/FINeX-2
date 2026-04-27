@@ -78,7 +78,13 @@ State the archetype clearly. Explain why based on their specific scenario respon
 ---
 
 ### Step 5 — Close
-End with:
+First, call save_memory with:
+- userId: [the user's email from the system prompt context — look for "Your user ID"]
+- type: "user_fact"
+- content: "Onboarding session 4 complete"
+- sessionId: "onboarding-4"
+
+Then end with:
 
 > "Onboarding complete. I now have a full picture — your goals, your finances, and how you actually think about risk. Everything I suggest from here will be built around this."
 

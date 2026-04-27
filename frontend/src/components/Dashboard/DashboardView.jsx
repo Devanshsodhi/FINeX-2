@@ -109,14 +109,14 @@ const DashboardView = ({ user, onLogout }) => {
       });
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content?.trim();
-      if (content) storeFact(userId, 'onboarding_data', content, sessionId);
+      if (content) await storeFact(userId, 'onboarding_data', content, sessionId);
     } catch (e) {
       console.warn('[Onboarding] Failed to extract profile:', e);
     }
 
     // Always record session completion — guaranteed, regardless of memory agent
     if (sessionNum) {
-      storeFact(userId, 'user_fact', `Onboarding session ${sessionNum} complete`, sessionId);
+      await storeFact(userId, 'user_fact', `Onboarding session ${sessionNum} complete`, sessionId);
     }
 
     setActiveSkill(null);
@@ -225,7 +225,7 @@ const DashboardView = ({ user, onLogout }) => {
       const res = await fetch(`/api/agents/${agentId}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: historyRef.current.messages }),
+        body: JSON.stringify({ messages: historyRef.current.messages, userId }),
       });
       if (!res.ok) throw new Error(`Agent failed (${res.status})`);
       const reader = res.body.getReader();
@@ -329,7 +329,7 @@ const DashboardView = ({ user, onLogout }) => {
         const res = await fetch(`/api/agents/${activeAgentRef.current.id}/message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: historyRef.current.messages }),
+          body: JSON.stringify({ messages: historyRef.current.messages, userId }),
         });
         if (!res.ok) throw new Error(`Agent failed (${res.status})`);
         const reader = res.body.getReader();
@@ -429,17 +429,18 @@ const DashboardView = ({ user, onLogout }) => {
     }
   };
 
-  const loadMemories = () => {
-    setMemories(getMemories(userId));
+  const loadMemories = async () => {
+    const mems = await getMemories(userId);
+    setMemories(mems);
   };
 
-  const handleClearMemories = () => {
-    clearMemory(userId);
+  const handleClearMemories = async () => {
+    await clearMemory(userId);
     setMemories([]);
   };
 
-  const handleDeleteMemory = (id) => {
-    deleteMemory(userId, id);
+  const handleDeleteMemory = async (id) => {
+    await deleteMemory(userId, id);
     setMemories(prev => prev.filter(m => m.id !== id));
   };
 
@@ -725,7 +726,7 @@ const DashboardView = ({ user, onLogout }) => {
         <div className="flex justify-between items-center px-5 py-4 border-b border-white/10">
           <div>
             <h2 className="text-sm font-bold uppercase tracking-widest text-white/80">Memory</h2>
-            <p className="text-[10px] text-gray-500 mt-0.5">Stored locally in your browser only.</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Stored securely on the server.</p>
           </div>
           <button onClick={() => setMemoryPanelOpen(false)}>
             <X size={18} className="text-gray-400 hover:text-white transition-colors" />

@@ -4,8 +4,8 @@
   "description": "Backend API for FINeX dashboard",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node --env-file=../.env index.js",
+    "dev": "nodemon --env-file=../.env index.js"
   },
   "type": "module",
   "dependencies": {

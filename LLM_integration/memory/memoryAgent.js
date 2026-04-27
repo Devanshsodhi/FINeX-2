@@ -40,7 +40,7 @@ export const runMemoryAgent = async (userId, sessionId, userMessage, assistantRe
   try {
     const actions = JSON.parse(text);
     for (const action of actions) {
-      storeFact(userId, action.type, action.content, sessionId);
+      await storeFact(userId, action.type, action.content, sessionId);
     }
   } catch {
     console.warn('[MemoryAgent] Failed to parse response:', text);
