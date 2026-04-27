@@ -172,103 +172,6 @@ const DashboardView = ({ user, onLogout }) => {
     return { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, agentDone, skillDone };
   };
 
-  const stripToolCallsForDisplay = (text) => {
-    let result = text.replace(/<USE_TOOL>[\s\S]*?<\/USE_TOOL>/g, '');
-    const openIdx = result.indexOf('<USE_TOOL>');
-    if (openIdx !== -1) result = result.slice(0, openIdx);
-    return result.trim();
-  };
-
-  const processToolCalls = async (text, depth = 0) => {
-    if (depth > 6) return null;
-    // Normalize model outputs that close with ] instead of </USE_TOOL>
-    const normalized = text.replace(/<USE_TOOL>(\s*\{[\s\S]*?\})\s*\]/g, '<USE_TOOL>$1</USE_TOOL>');
-    const toolCallRegex = /<USE_TOOL>([\s\S]*?)<\/USE_TOOL>/g;
-    const matches = [...normalized.matchAll(toolCallRegex)];
-    if (matches.length === 0) return text;
-
-    setChatMessages(prev => {
-      const last = prev[prev.length - 1] || {};
-      return [...prev.slice(0, -1), { role: 'assistant', content: '⚙️ Working on it...', showDashboardCard: last.showDashboardCard, showMarketCard: last.showMarketCard }];
-    });
-
-    for (const match of matches) {
-      try {
-        const toolCall = JSON.parse(match[1].trim());
-        const res = await fetch(`/api/tools/${toolCall.tool}/execute`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(toolCall.params || {}),
-        });
-        const data = await res.json();
-
-        if (toolCall.tool === 'load_skill' && data.result?.content) {
-          const { skill_id, content } = data.result;
-          historyRef.current.injectSkill(content);
-          const registryRes = await fetch('/api/skills').catch(() => null);
-          const registry = registryRes ? await registryRes.json().catch(() => []) : [];
-          const skillMeta = registry.find(s => s.id === skill_id);
-          setActiveSkill({ id: skill_id, name: skillMeta?.name || skill_id });
-          historyRef.current.add('user', `Skill '${skill_id}' has been loaded. Follow its instructions now.`);
-        } else {
-          historyRef.current.add('user', `Tool result for ${toolCall.tool}: ${JSON.stringify(data.result ?? data.error)}`);
-        }
-      } catch (e) {
-        historyRef.current.add('user', `Tool call failed: ${e.message}`);
-      }
-    }
-
-    // Follow-up LLM call
-    const followUpUrl  = activeAgentRef.current
-      ? `/api/agents/${activeAgentRef.current.id}/message`
-      : '/api/llm/stream';
-    const followUpBody = activeAgentRef.current
-      ? { messages: historyRef.current.messages }
-      : { messages: historyRef.current.getWithSystem() };
-
-    setIsTyping(true);
-    let streamStarted = false;
-    let full = '';
-    try {
-      const streamRes = await fetch(followUpUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(followUpBody),
-      });
-      const reader = streamRes.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') continue;
-          try {
-            const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
-            if (delta) {
-              full += delta;
-              if (!streamStarted) { streamStarted = true; setIsTyping(false); }
-              const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
-              setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
-            }
-          } catch { }
-        }
-      }
-      if (full) {
-        historyRef.current.add('assistant', full);
-        // If the LLM's follow-up also contains tool calls, loop
-        if (/<USE_TOOL>/.test(full)) {
-          return processToolCalls(full, depth + 1);
-        }
-      }
-    } catch (e) {
-      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: `Error: ${e.message}` }]);
-    } finally {
-      setIsTyping(false);
-    }
-    return null;
-  };
 
   // Calls a runnable agent endpoint and streams its response into chat as a new assistant message
   const runAgent = async (agentId) => {
@@ -338,7 +241,7 @@ const DashboardView = ({ user, onLogout }) => {
             const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
             if (delta) {
               full += delta;
-              const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
+              const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(full);
               if (!streamStarted) {
                 streamStarted = true;
                 setIsTyping(false);
@@ -352,12 +255,7 @@ const DashboardView = ({ user, onLogout }) => {
       }
       if (full) {
         historyRef.current.add('assistant', full);
-        const { cleaned, showDashboardCard, showMarketCard, agentDone, skillDone } = processAssistantResponse(full);
-        const toolResult = await processToolCalls(cleaned);
-        if (toolResult !== null) {
-          const final = processAssistantResponse(toolResult);
-          setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
-        }
+        const { agentDone, skillDone } = processAssistantResponse(full);
         if (agentDone || skillDone) {
           activeAgentRef.current = null;
           setActiveAgent(null);
@@ -372,22 +270,20 @@ const DashboardView = ({ user, onLogout }) => {
     }
   };
 
-  // Streams the opening message of an already-activated skill and handles tool calls / markers
+  // Streams the opening message of an already-activated skill
   const runSkillFlow = async () => {
     let streamStarted = false;
     try {
       await streamMessage('Begin the skill now.', historyRef.current, userId, sessionId, (_chunk, full) => {
         pendingFullRef.current = full;
-        const display = stripToolCallsForDisplay(full);
-        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(display);
+        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(full);
         if (!streamStarted) {
           streamStarted = true;
           setIsTyping(false);
           setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
         } else if (!rafRef.current) {
           rafRef.current = requestAnimationFrame(() => {
-            const currentDisplay = stripToolCallsForDisplay(pendingFullRef.current);
-            const processed = processAssistantResponse(currentDisplay);
+            const processed = processAssistantResponse(pendingFullRef.current);
             setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: processed.cleaned, showDashboardCard: processed.showDashboardCard, showMarketCard: processed.showMarketCard }]);
             rafRef.current = null;
           });
@@ -395,11 +291,7 @@ const DashboardView = ({ user, onLogout }) => {
       }, { skipMemoryAgent: true });
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
       const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(pendingFullRef.current);
-      const skillToolResult = await processToolCalls(cleaned);
-      if (skillToolResult !== null) {
-        const final = processAssistantResponse(skillToolResult);
-        setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
-      }
+      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
     } finally {
@@ -453,7 +345,7 @@ const DashboardView = ({ user, onLogout }) => {
               const delta = JSON.parse(raw).choices?.[0]?.delta?.content || '';
               if (delta) {
                 full += delta;
-                const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(stripToolCallsForDisplay(full));
+                const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(full);
                 if (!streamStarted) { streamStarted = true; setIsTyping(false); setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]); }
                 else setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
               }
@@ -462,7 +354,7 @@ const DashboardView = ({ user, onLogout }) => {
         }
         if (full) {
           historyRef.current.add('assistant', full);
-          const { cleaned, showDashboardCard, showMarketCard, agentDone, skillDone, handoffAgentId } = processAssistantResponse(full);
+          const { handoffAgentId, agentDone, skillDone } = processAssistantResponse(full);
           if (handoffAgentId) {
             const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
             const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
@@ -471,18 +363,11 @@ const DashboardView = ({ user, onLogout }) => {
             historyRef.current.clearSkill();
             setActiveSkill(null);
             await startAgent(handoffAgentId);
-          } else {
-            const toolResult = await processToolCalls(cleaned);
-            if (toolResult !== null) {
-              const final = processAssistantResponse(toolResult);
-              setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
-            }
-            if (agentDone || skillDone) {
-              activeAgentRef.current = null;
-              setActiveAgent(null);
-              setActiveSkill(null);
-              historyRef.current.clearSkill();
-            }
+          } else if (agentDone || skillDone) {
+            activeAgentRef.current = null;
+            setActiveAgent(null);
+            setActiveSkill(null);
+            historyRef.current.clearSkill();
           }
         }
       } catch (err) {
@@ -499,16 +384,14 @@ const DashboardView = ({ user, onLogout }) => {
     try {
       await streamMessage(text, historyRef.current, userId, sessionId, (_chunk, full) => {
         pendingFullRef.current = full;
-        const display = stripToolCallsForDisplay(full);
-        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(display);
+        const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(full);
         if (!streamStarted) {
           streamStarted = true;
           setIsTyping(false);
           setChatMessages(prev => [...prev, { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
         } else if (!rafRef.current) {
           rafRef.current = requestAnimationFrame(() => {
-            const currentDisplay = stripToolCallsForDisplay(pendingFullRef.current);
-            const processed = processAssistantResponse(currentDisplay);
+            const processed = processAssistantResponse(pendingFullRef.current);
             setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: processed.cleaned, showDashboardCard: processed.showDashboardCard, showMarketCard: processed.showMarketCard }]);
             rafRef.current = null;
           });
@@ -517,38 +400,20 @@ const DashboardView = ({ user, onLogout }) => {
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
       const { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, skillDone } = processAssistantResponse(pendingFullRef.current);
       if (skillDone) { setActiveSkill(null); historyRef.current.clearSkill(); }
-      let finalText = cleaned;
 
-      // Handoff takes priority — skip tool calls so agent handles everything
+      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+
       if (handoffAgentId) {
         const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
         const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
         activeAgentRef.current = agentObj;
         setActiveAgent(agentObj);
         await startAgent(handoffAgentId);
-      } else {
-        finalText = await processToolCalls(finalText);
-        if (finalText !== null) {
-          const final = processAssistantResponse(finalText);
-          setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: final.cleaned, showDashboardCard: final.showDashboardCard || showDashboardCard, showMarketCard: final.showMarketCard || showMarketCard }]);
-          // Auto-activate skill
-          const skillToActivate = activateSkillId || final.activateSkillId;
-          if (skillToActivate) {
-            setIsTyping(true);
-            const ok = await activateSkill(skillToActivate);
-            if (ok) await runSkillFlow();
-            else setIsTyping(false);
-          }
-          // Agent handoff from tool follow-up
-          const agentToHandoff = final.handoffAgentId;
-          if (agentToHandoff) {
-            const agentMeta = agentsRegistry.find(a => a.id === agentToHandoff);
-            const agentObj = { id: agentToHandoff, name: agentMeta?.name || agentToHandoff };
-            activeAgentRef.current = agentObj;
-            setActiveAgent(agentObj);
-            await startAgent(agentToHandoff);
-          }
-        }
+      } else if (activateSkillId) {
+        setIsTyping(true);
+        const ok = await activateSkill(activateSkillId);
+        if (ok) await runSkillFlow();
+        else setIsTyping(false);
       }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
