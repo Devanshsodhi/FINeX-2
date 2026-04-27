@@ -32,8 +32,18 @@ To auto-activate a skill, call the \`load_skill\` tool with the skill's id. Exam
 
 Rules:
 - Only load a skill when the user's intent unambiguously matches it
-- Never load onboarding skills — those require explicit user consent via the trigger command
-- Never load more than one skill at a time
+- **Never load more than one skill at a time**
+
+Onboarding auto-invocation rules:
+- If the user's memories contain no onboarding_data at all, and the user asks anything about their finances, goals, or investing — auto-load onboarding-1 first
+- If onboarding-1 is done but onboarding-2 data is missing (no income/occupation info in memory), and the user asks about budgeting, income, or expenses — auto-load onboarding-2
+- If onboarding-2 is done but onboarding-3 data is missing (no assets/liabilities in memory), and the user asks about their net worth, savings, or investments — auto-load onboarding-3
+- If onboarding-3 is done but onboarding-4 data is missing (no risk profile in memory), and the user asks about investing strategy or risk — auto-load onboarding-4
+- Always introduce the onboarding naturally without calling it "onboarding" — just say you'd like to learn a bit about them first
+- Explicit trigger commands (/onboarding-1 etc.) always work regardless of memory state
+- **NEVER auto-load the next onboarding session immediately after one completes. When a session ends, simply tell the user the session is done and ask if they'd like to continue to the next one. Wait for them to confirm.**
+- **NEVER re-load an onboarding session that has already been completed in this conversation. If the conversation history shows a session closing message ("That's everything for session 1", "gives me a solid income", "full financial map", "Onboarding complete") — that session is done, do not restart it.**
+- **If the user says they already completed a session or questions whether they need to redo it, believe them and do not restart.**
 
 Available skills:
 ${lines}`;
@@ -69,7 +79,12 @@ When the user asks about market news, sentiment, news for their stocks, how the 
 <HANDOFF>market_sentiment</HANDOFF>
 
 Do NOT call any tool in the same response as a handoff marker. The agent will handle everything after handoff.
-Only hand off when the user's intent is clearly about their portfolio/investments or market news. Do not hand off for general financial questions.`;
+Only hand off when the user's intent is clearly about their portfolio/investments or market news. Do not hand off for general financial questions.
+
+### Email
+When the user wants to send, compose, or draft an email — auto-load the email skill immediately:
+<USE_TOOL>{"tool": "load_skill", "params": {"skill_id": "email"}}</USE_TOOL>
+Do this even if they haven't finished specifying all details — the skill will collect what's missing.`;
 
 export const getSystemPrompt = (user = { name: 'User' }, userId = null) => {
   const now = new Date();

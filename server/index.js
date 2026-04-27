@@ -100,7 +100,7 @@ const TOOLS_REGISTRY = buildToolsRegistry();
 
 const LLM_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const LLM_MODEL = 'openai/gpt-oss-120b';
-const LLM_MAX_TOKENS = 2000;
+const LLM_MAX_TOKENS = 4000;
 const LLM_TEMPERATURE = 0.4;
 const LLM_PROVIDER = { order: ['DeepInfra'], quantizations: ['bf16'] };
 
@@ -230,11 +230,11 @@ app.get('/api/portfolio/summary', (_req, res) => {
 app.get('/api/market/sentiment', async (_req, res) => {
   try {
     const portfolio = readData(PORTFOLIO_FILE);
-    const symbols = [
-      ...portfolio.stocks.map(s => s.symbol),
-      ...portfolio.crypto.map(c => c.symbol),
+    const holdings = [
+      ...portfolio.stocks.map(s => ({ symbol: s.symbol, name: s.name || s.symbol })),
+      ...portfolio.crypto.map(c => ({ symbol: c.symbol, name: c.coin || c.symbol })),
     ];
-    const data = await getMarketData(symbols);
+    const data = await getMarketData(holdings);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });

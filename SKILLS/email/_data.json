@@ -1,0 +1,6 @@
+{
+  "id": "email",
+  "name": "Email Assistant",
+  "trigger": "/email",
+  "description": "Compose and send emails via Gmail. Handles recipient, subject, and body collection, then sends via the send_email tool."
+}

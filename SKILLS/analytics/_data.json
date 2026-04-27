@@ -1,0 +1,6 @@
+{
+  "id": "analytics",
+  "name": "Financial Analytics",
+  "trigger": "/analytics",
+  "description": "Run financial calculations: goal probability, SIP projections, tax computation, portfolio rebalancing, CAGR, Sharpe ratio, exchange rates."
+}

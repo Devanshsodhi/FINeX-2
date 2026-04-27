@@ -8,21 +8,9 @@ const RSS_FEEDS = [
   'https://feeds.feedburner.com/ndtvprofit-latest',
 ];
 
-const SYMBOL_QUERIES = {
-  RELIANCE: ['Reliance Industries', 'Reliance'],
-  TCS: ['Tata Consultancy', 'TCS'],
-  INFY: ['Infosys'],
-  HDFCBANK: ['HDFC Bank'],
-  BAJFINANCE: ['Bajaj Finance'],
-  BTC: ['Bitcoin', 'BTC'],
-  ETH: ['Ethereum', 'ETH'],
-  SOL: ['Solana', 'SOL'],
-};
-
-const getQueries = (symbol) => SYMBOL_QUERIES[symbol] || [symbol];
-
-export async function fetchNewsForSymbol(symbol, apiKey) {
-  const queries = getQueries(symbol);
+export async function fetchNewsForSymbol(symbol, name, apiKey) {
+  // Use full name as primary query, symbol as fallback
+  const queries = name && name !== symbol ? [name, symbol] : [symbol];
   const articles = [];
 
   // 1. NewsAPI

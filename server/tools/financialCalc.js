@@ -393,7 +393,113 @@ export const get_tax_insights = async () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. Rebalancing Advice
+// 4. Goal Probability — Monte Carlo with monthly contributions
+// ─────────────────────────────────────────────────────────────────────────────
+
+const randn = () => {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+};
+
+export const calculate_goal_probability = async ({
+  goal_name,
+  monthly_contribution,
+  expected_annual_return_pct = 10,
+  annual_volatility_pct = 15,
+  simulations = 1000,
+}) => {
+  const p = readPortfolio();
+  const goal = p.goals?.find(g => g.name.toLowerCase().includes(goal_name.toLowerCase()));
+  if (!goal) return { error: `Goal "${goal_name}" not found. Available goals: ${p.goals?.map(g => g.name).join(', ')}` };
+
+  const targetAmount   = goal.target_amount;
+  const currentCorpus  = goal.current_amount || 0;
+  const deadline       = new Date(goal.deadline);
+  const monthsLeft     = Math.max(1, Math.round((deadline - Date.now()) / (1000 * 60 * 60 * 24 * 30.44)));
+
+  const mu    = expected_annual_return_pct / 100 / 12;
+  const sigma = annual_volatility_pct / 100 / Math.sqrt(12);
+
+  const runSim = (monthlyC) => {
+    let successes = 0;
+    const outcomes = [];
+    for (let i = 0; i < simulations; i++) {
+      let corpus = currentCorpus;
+      for (let m = 0; m < monthsLeft; m++) {
+        corpus += monthlyC;
+        corpus *= (1 + mu + sigma * randn());
+      }
+      if (corpus >= targetAmount) successes++;
+      outcomes.push(corpus);
+    }
+    outcomes.sort((a, b) => a - b);
+    return {
+      success_pct: +((successes / simulations) * 100).toFixed(1),
+      p10: Math.round(outcomes[Math.floor(simulations * 0.10)]),
+      p50: Math.round(outcomes[Math.floor(simulations * 0.50)]),
+      p90: Math.round(outcomes[Math.floor(simulations * 0.90)]),
+    };
+  };
+
+  const result = runSim(monthly_contribution);
+
+  // Binary search for monthly contribution needed at 80% success
+  let lo = 0, hi = targetAmount / monthsLeft * 2;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    const { success_pct } = runSim(mid);
+    if (success_pct >= 80) hi = mid; else lo = mid;
+  }
+  const recommended_monthly = Math.round((lo + hi) / 2);
+
+  return {
+    goal_name: goal.name,
+    target_amount: targetAmount,
+    target_amount_fmt: fmtInr(targetAmount),
+    current_corpus: currentCorpus,
+    current_corpus_fmt: fmtInr(currentCorpus),
+    months_to_deadline: monthsLeft,
+    monthly_contribution,
+    monthly_contribution_fmt: fmtInr(monthly_contribution),
+    success_probability_pct: result.success_pct,
+    p10_outcome_fmt: fmtInr(result.p10),
+    p50_outcome_fmt: fmtInr(result.p50),
+    p90_outcome_fmt: fmtInr(result.p90),
+    recommended_monthly_for_80pct: recommended_monthly,
+    recommended_monthly_fmt: fmtInr(recommended_monthly),
+    simulations,
+    note: result.success_pct >= 80
+      ? 'On track — good probability of hitting the goal.'
+      : `Shortfall likely — to hit 80% success, you need ${fmtInr(recommended_monthly)}/month.`,
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Exchange Rates
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const get_exchange_rates = async ({ from_currency, to_currency }) => {
+  const from = from_currency.toUpperCase();
+  const to   = to_currency.toUpperCase();
+  const res  = await fetch(`https://api.exchangerate-api.com/v4/latest/${from}`, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`Exchange rate API error: ${res.status}`);
+  const data = await res.json();
+  const rate = data.rates?.[to];
+  if (!rate) throw new Error(`Rate not found for ${from} → ${to}`);
+  return {
+    from_currency: from,
+    to_currency:   to,
+    rate:          +rate.toFixed(4),
+    example:       `1 ${from} = ${rate.toFixed(2)} ${to}`,
+    date:          data.date,
+    source:        'exchangerate-api.com',
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Rebalancing Advice
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const get_rebalancing_advice = async () => {

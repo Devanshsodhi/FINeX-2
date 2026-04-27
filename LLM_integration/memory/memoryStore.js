@@ -18,16 +18,32 @@ const persist = (userId, entries) => {
 };
 
 export const saveMemory = (userId, entry) => {
-  const entries = load(userId);
+  let entries = load(userId);
+
+  // onboarding_data: upsert — one canonical record, always replace
+  if (entry.type === 'onboarding_data') {
+    const idx = entries.findIndex(e => e.type === 'onboarding_data');
+    if (idx !== -1) {
+      entries[idx] = { ...entries[idx], content: entry.content, updatedAt: entry.createdAt };
+    } else {
+      entries.push(entry);
+    }
+    persist(userId, entries);
+    return;
+  }
+
+  // user_fact: skip exact duplicates (case-insensitive)
+  const norm = (s) => s?.toLowerCase().trim();
+  if (entry.type === 'user_fact') {
+    if (entries.some(e => e.type === 'user_fact' && norm(e.content) === norm(entry.content))) return;
+  }
+
   entries.push(entry);
 
   if (entries.length > MAX_ENTRIES) {
     for (const type of EVICTION_ORDER) {
       const idx = entries.findIndex(e => e.type === type);
-      if (idx !== -1) {
-        entries.splice(idx, 1);
-        break;
-      }
+      if (idx !== -1) { entries.splice(idx, 1); break; }
     }
   }
 

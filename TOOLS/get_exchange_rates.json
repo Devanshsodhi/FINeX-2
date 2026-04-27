@@ -1,0 +1,20 @@
+{
+  "id": "get_exchange_rates",
+  "name": "get_exchange_rates",
+  "description": "Fetches live exchange rate between any two currencies (e.g. USD to INR, AED to INR). Always call this before doing any currency conversion — never guess rates.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "from_currency": {
+        "type": "string",
+        "description": "Source currency code (e.g. 'USD', 'AED', 'EUR')"
+      },
+      "to_currency": {
+        "type": "string",
+        "description": "Target currency code (e.g. 'INR', 'USD')"
+      }
+    },
+    "required": ["from_currency", "to_currency"],
+    "additionalProperties": false
+  }
+}

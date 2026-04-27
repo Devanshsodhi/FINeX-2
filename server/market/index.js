@@ -12,23 +12,22 @@ const classifyRegime = (scores) => {
   return { label: 'Neutral', color: 'yellow', description: 'Mixed signals — markets in wait-and-watch mode.' };
 };
 
-export async function getMarketData(symbols) {
+export async function getMarketData(holdings) {
   const now = Date.now();
   if (_cache.data && now - _cache.at < CACHE_TTL) return _cache.data;
 
   const apiKey = process.env.NEWSAPI_KEY;
 
   const symbolResults = await Promise.all(
-    symbols.map(async (symbol) => {
+    holdings.map(async ({ symbol, name }) => {
       const [articles, twits] = await Promise.allSettled([
-        fetchNewsForSymbol(symbol, apiKey),
+        fetchNewsForSymbol(symbol, name, apiKey),
         getStockTwitsSentiment(symbol),
       ]);
 
       const newsData = analyzeArticles(articles.status === 'fulfilled' ? articles.value : []);
       const twitsData = twits.status === 'fulfilled' ? twits.value : null;
 
-      // Blend: 60% news, 40% social (only when social data available)
       let finalScore = newsData.score;
       if (twitsData) {
         finalScore = +((newsData.score * 0.6 + twitsData.score * 0.4)).toFixed(3);

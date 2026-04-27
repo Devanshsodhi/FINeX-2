@@ -1,0 +1,30 @@
+{
+  "id": "calculate_goal_probability",
+  "name": "calculate_goal_probability",
+  "description": "Monte Carlo simulation for a savings goal. Reads target amount and deadline from the portfolio — you only need to provide the goal name and monthly contribution. Returns success probability, p10/p50/p90 outcomes, and the monthly contribution needed for 80% success.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "goal_name": {
+        "type": "string",
+        "description": "Name of the goal as it appears in the portfolio (e.g. 'home', 'retirement', 'car'). Partial match supported."
+      },
+      "monthly_contribution": {
+        "type": "number",
+        "description": "Monthly amount the user plans to contribute (INR)"
+      },
+      "expected_annual_return_pct": {
+        "type": "number",
+        "description": "Expected annual portfolio return percentage. Defaults to 10.",
+        "default": 10
+      },
+      "annual_volatility_pct": {
+        "type": "number",
+        "description": "Annual portfolio volatility percentage. Defaults to 15.",
+        "default": 15
+      }
+    },
+    "required": ["goal_name", "monthly_contribution"],
+    "additionalProperties": false
+  }
+}

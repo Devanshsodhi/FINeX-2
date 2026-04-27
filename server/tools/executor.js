@@ -27,11 +27,11 @@ const load_tools = async ({ tool_names }) => {
 
 const get_market_sentiment = async () => {
   const portfolio_data = JSON.parse(fs.readFileSync(PORTFOLIO_FILE, 'utf8'));
-  const symbols = [
-    ...portfolio_data.stocks.map(s => s.symbol),
-    ...portfolio_data.crypto.map(c => c.symbol),
+  const holdings = [
+    ...portfolio_data.stocks.map(s => ({ symbol: s.symbol, name: s.name || s.symbol })),
+    ...portfolio_data.crypto.map(c => ({ symbol: c.symbol, name: c.coin || c.symbol })),
   ];
-  return getMarketData(symbols);
+  return getMarketData(holdings);
 };
 
 const TOOL_MAP = {
@@ -46,9 +46,11 @@ const TOOL_MAP = {
   load_skill: skillLoader.load_skill,
   get_market_sentiment,
   calculate_sip: financialCalc.calculate_sip,
+  calculate_goal_probability: financialCalc.calculate_goal_probability,
   get_tax_insights: financialCalc.get_tax_insights,
   get_rebalancing_advice: financialCalc.get_rebalancing_advice,
   compute_income_tax: financialCalc.compute_income_tax,
+  get_exchange_rates: financialCalc.get_exchange_rates,
 };
 
 export async function executeTool(toolId, params) {

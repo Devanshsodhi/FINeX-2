@@ -88,6 +88,9 @@ const DashboardView = ({ user, onLogout }) => {
     const conversationMessages = historyRef.current.messages.filter(
       m => m.role === 'user' || m.role === 'assistant'
     );
+    // Derive session number from active skill id (e.g. "onboarding-2" → 2)
+    const sessionNum = activeSkill?.id?.match(/onboarding-(\d+)/)?.[1];
+
     try {
       const res = await fetch('/api/llm/chat', {
         method: 'POST',
@@ -110,6 +113,12 @@ const DashboardView = ({ user, onLogout }) => {
     } catch (e) {
       console.warn('[Onboarding] Failed to extract profile:', e);
     }
+
+    // Always record session completion — guaranteed, regardless of memory agent
+    if (sessionNum) {
+      storeFact(userId, 'user_fact', `Onboarding session ${sessionNum} complete`, sessionId);
+    }
+
     setActiveSkill(null);
   };
 
@@ -178,10 +187,10 @@ const DashboardView = ({ user, onLogout }) => {
     const matches = [...normalized.matchAll(toolCallRegex)];
     if (matches.length === 0) return text;
 
-    setChatMessages(prev => [
-      ...prev.slice(0, -1),
-      { role: 'assistant', content: '⚙️ Working on it...' },
-    ]);
+    setChatMessages(prev => {
+      const last = prev[prev.length - 1] || {};
+      return [...prev.slice(0, -1), { role: 'assistant', content: '⚙️ Working on it...', showDashboardCard: last.showDashboardCard, showMarketCard: last.showMarketCard }];
+    });
 
     for (const match of matches) {
       try {

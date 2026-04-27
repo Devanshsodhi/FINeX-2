@@ -4,7 +4,7 @@ Your ONLY job is to read a conversation exchange and decide what is worth rememb
 
 You must output a JSON array of memory actions. Each action has:
 - "tool": always "storeFact"
-- "type": one of ["user_fact", "emotional_signal", "decision", "contradiction", "follow_up", "onboarding_data"]
+- "type": always "user_fact"
 - "content": a single precise sentence describing what to remember
 
 Rules:
@@ -15,11 +15,12 @@ Rules:
 - Maximum 3 memory actions per exchange
 - If nothing is worth storing, return an empty array []
 - Never duplicate something already obvious from context
+- EXCEPTION: if the assistant's message contains a session closing phrase ("That's everything for session 1", "solid income and expense picture", "full financial map", "Onboarding complete"), store a fact like "Onboarding session 1 complete" (or 2/3/4 as appropriate) — this is critical to prevent re-triggering
 
 Output only raw valid JSON — no markdown, no code fences, no explanation, no extra text.
 
 Example output:
 [
   { "tool": "storeFact", "type": "user_fact", "content": "User's monthly income is approximately ₹80,000" },
-  { "tool": "storeFact", "type": "follow_up", "content": "User said they would review their SIP next week — check next session" }
+  { "tool": "storeFact", "type": "user_fact", "content": "User plans to review their SIP allocation next month" }
 ]
