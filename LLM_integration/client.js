@@ -1,8 +1,8 @@
-export async function callLLM(messages) {
+export async function callLLM(messages, { userId = '', sessionId = '', userName = 'User' } = {}) {
   const response = await fetch('/api/llm/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, user_id: userId, session_id: sessionId, user_name: userName }),
   });
 
   if (!response.ok) {
@@ -25,24 +25,27 @@ export async function callLLM(messages) {
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6).trim();
+      const data = line.slice(6).replace(/\r$/, '');
       if (data === '[DONE]') continue;
       try {
         const json = JSON.parse(data);
+        if (json.type === 'handoff') continue;
         const text = json.choices?.[0]?.delta?.content ?? '';
         if (text) full += text;
-      } catch {}
+      } catch {
+        if (data) full += data; // plain text chunk from Python server
+      }
     }
   }
 
   return full;
 }
 
-export async function streamLLM(messages, onChunk) {
+export async function streamLLM(messages, onChunk, { userId = '', sessionId = '', userName = 'User' } = {}) {
   const response = await fetch('/api/llm/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, user_id: userId, session_id: sessionId, user_name: userName }),
   });
 
   if (!response.ok) {
@@ -65,15 +68,16 @@ export async function streamLLM(messages, onChunk) {
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6).trim();
+      const data = line.slice(6).replace(/\r$/, '');
       if (data === '[DONE]') continue;
-      
+
       let text = '';
       try {
         const json = JSON.parse(data);
+        if (json.type === 'handoff') continue; // SDK handoff event — skip
         text = json.choices?.[0]?.delta?.content ?? '';
       } catch {
-        continue;
+        text = data; // plain text chunk from Python server
       }
 
       if (text) {

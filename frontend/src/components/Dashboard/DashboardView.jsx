@@ -71,8 +71,7 @@ const DashboardView = ({ user, onLogout }) => {
         setChatMessages(prev => [...prev, { role: 'assistant', content: `No skill found for /${skillId}.` }]);
         return false;
       }
-      const content = await res.text();
-      historyRef.current.injectSkill(content);
+      // Server injects skill content via load_skill tool — client only tracks UI state
       const registryRes = await fetch('/api/skills');
       const registry = await registryRes.json();
       const skill = registry.find(s => s.id === skillId);
@@ -122,14 +121,15 @@ const DashboardView = ({ user, onLogout }) => {
     setActiveSkill(null);
   };
 
-  // Processes assistant response for special markers
+  // Processes assistant response for special markers — pure, no side effects
   const processAssistantResponse = (text) => {
     let cleaned = text;
     let showDashboardCard = false;
     let activateSkillId = null;
+    let onboardingComplete = false;
 
     if (cleaned.includes('<ONBOARDING_COMPLETE>')) {
-      finalizeOnboarding();
+      onboardingComplete = true;
       cleaned = cleaned.replace('<ONBOARDING_COMPLETE>', '').trim();
     }
 
@@ -169,7 +169,7 @@ const DashboardView = ({ user, onLogout }) => {
       cleaned = cleaned.replace('<SKILL_DONE>', '').trim();
     }
 
-    return { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, agentDone, skillDone };
+    return { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, agentDone, skillDone, onboardingComplete };
   };
 
 
@@ -288,10 +288,11 @@ const DashboardView = ({ user, onLogout }) => {
             rafRef.current = null;
           });
         }
-      }, { skipMemoryAgent: true });
+      }, { skipMemoryAgent: true, userName: user?.name || 'User' });
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-      const { cleaned, showDashboardCard, showMarketCard } = processAssistantResponse(pendingFullRef.current);
+      const { cleaned, showDashboardCard, showMarketCard, onboardingComplete } = processAssistantResponse(pendingFullRef.current);
       setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+      if (onboardingComplete) await finalizeOnboarding();
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
     } finally {
@@ -319,6 +320,7 @@ const DashboardView = ({ user, onLogout }) => {
 
     setChatMessages(prev => [...prev, { role: 'user', content: text }]);
     setIsTyping(true);
+    pendingFullRef.current = '';
 
     // --- Agent is active: route through agent endpoint ---
     if (activeAgentRef.current) {
@@ -396,24 +398,26 @@ const DashboardView = ({ user, onLogout }) => {
             rafRef.current = null;
           });
         }
-      }, { skipMemoryAgent: skillActive });
+      }, { skipMemoryAgent: skillActive, userName: user?.name || 'User' });
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-      const { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, skillDone } = processAssistantResponse(pendingFullRef.current);
-      if (skillDone) { setActiveSkill(null); historyRef.current.clearSkill(); }
-
-      setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
-
-      if (handoffAgentId) {
-        const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
-        const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
-        activeAgentRef.current = agentObj;
-        setActiveAgent(agentObj);
-        await startAgent(handoffAgentId);
-      } else if (activateSkillId) {
-        setIsTyping(true);
-        const ok = await activateSkill(activateSkillId);
-        if (ok) await runSkillFlow();
-        else setIsTyping(false);
+      if (streamStarted && pendingFullRef.current) {
+        const { cleaned, showDashboardCard, showMarketCard, activateSkillId, handoffAgentId, skillDone, onboardingComplete } = processAssistantResponse(pendingFullRef.current);
+        if (onboardingComplete) await finalizeOnboarding();
+        if (skillDone) { setActiveSkill(null); historyRef.current.clearSkill(); }
+        setChatMessages(prev => [...prev.slice(0, -1), { role: 'assistant', content: cleaned, showDashboardCard, showMarketCard }]);
+        if (handoffAgentId) {
+          const agentMeta = agentsRegistry.find(a => a.id === handoffAgentId);
+          const agentObj = { id: handoffAgentId, name: agentMeta?.name || handoffAgentId };
+          activeAgentRef.current = agentObj;
+          setActiveAgent(agentObj);
+          await startAgent(handoffAgentId);
+        } else if (activateSkillId) {
+          setIsTyping(true);
+          const ok = await activateSkill(activateSkillId);
+          if (ok) await runSkillFlow();
+          else setIsTyping(false);
+        }
+        return;
       }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
@@ -573,7 +577,7 @@ const DashboardView = ({ user, onLogout }) => {
                   setActivePanel(card.id);
                   if (card.id === 'skills') fetch('/api/skills').then(r => r.json()).then(setSkillsRegistry).catch(() => { });
                   if (card.id === 'agents') fetch('/api/agents').then(r => r.json()).then(setAgentsRegistry).catch(() => { });
-                  if (card.id === 'connectors') fetch('/api/connectors').then(r => r.json()).then(setConnectorsRegistry).catch(() => { });
+                  if (card.id === 'connectors') fetch('/api/connectors').then(r => r.ok ? r.json() : []).then(data => setConnectorsRegistry(Array.isArray(data) ? data : [])).catch(() => { });
                 }}
                 className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10 hover:border-brand-orange/30 transition-all duration-300 group cursor-pointer active:scale-[0.98]"
               >
@@ -774,11 +778,14 @@ const DashboardView = ({ user, onLogout }) => {
 
       {/* Feature Panels Overlay */}
       {activePanel && (
-        <div className="fixed inset-0 bg-black/60 z-50 transition-opacity backdrop-blur-sm" onClick={() => setActivePanel(null)} />
+        <div className="fixed inset-0 bg-black/60 z-[59] transition-opacity" onClick={() => setActivePanel(null)} />
       )}
 
       {/* Feature Panels */}
-      <div className={`fixed top-0 right-0 h-full w-full sm:w-[400px] bg-charcoal border-l border-white/10 z-50 flex flex-col transition-transform duration-300 ease-in-out ${activePanel ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        className={`fixed top-0 right-0 h-full w-[400px] bg-charcoal border-l border-white/10 z-[60] flex flex-col transition-transform duration-300 ease-in-out ${activePanel ? 'translate-x-0' : 'translate-x-full'}`}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-white/10 bg-dark/40">
           <h2 className="text-[13px] font-bold uppercase tracking-[0.2em] text-white/90">

@@ -23,6 +23,10 @@ export class ConversationHistory {
     this.messages = this.messages.filter(m => !m.content?.startsWith('[SKILL ACTIVATED]'));
   }
 
+  get() {
+    return [...this.messages];
+  }
+
   async getWithSystem() {
     // Rebuilt each call so newly stored memories are always included
     const systemContent = await getSystemPrompt(this.user, this.userId);
